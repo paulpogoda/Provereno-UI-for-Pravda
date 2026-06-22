@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+{% block title %}Импорт {{ batch_id[:8] }}{% endblock %}
+{% block content %}
+
+<div style="max-width:760px;margin:0 auto"
+     x-data="{
+       total: {{ total }},
+       done: {{ done }},
+       errors: {{ errors }},
+       running: {{ 'true' if running else 'false' }},
+       jobs: {{ jobs_json }},
+       init() {
+         if (!this.running) return;
+         const es = new EventSource('/bulk/{{ batch_id }}/stream');
+         es.addEventListener('progress', e => {
+           const d = JSON.parse(e.data);
+           this.done    = d.done;
+           this.errors  = d.errors;
+           this.running = d.running;
+           if (d.job) {
+             const idx = this.jobs.findIndex(j => j.id === d.job.id);
+             if (idx !== -1) this.jobs[idx] = d.job;
+             else this.jobs.unshift(d.job);
+           }
+         });
+         es.addEventListener('done', () => {
+           this.running = false;
+           es.close();
+         });
+         es.onerror = () => { es.close(); this.polling(); };
+       },
+       async polling() {
+         if (!this.running) return;
+         try {
+           const r = await fetch('/bulk/{{ batch_id }}/status');
+           const d = await r.json();
+           this.done = d.done; this.errors = d.errors; this.running = d.running;
+           this.jobs = d.jobs || this.jobs;
+         } catch(_) {}
+         if (this.running) setTimeout(() => this.polling(), 2500);
+       },
+       get pct() { return this.total ? Math.round(this.done / this.total * 100) : 0; },
+       statusBadge(s) {
+         if (s === 'done') return 'badge-done';
+         if (s === 'error') return 'badge-error';
+         if (s === 'capturing') return 'badge-capturing';
+         return 'badge-queued';
+       }
+     }">
+
+  <!-- Header -->
+  <div class="page-header">
+    <div>
+      <a href="/bulk" class="btn btn-ghost btn-sm"
+         style="margin-bottom:var(--space-3)">← Bulk Import</a>
+      <h1 class="page-title">Импорт батча</h1>
+      <p class="page-subtitle">
+        <code style="font-size:var(--text-xs)">{{ batch_id }}</code>
+      </p>
+    </div>
+  </div>
+
+  <!-- Overall progress card -->
+  <div class="card" style="margin-bottom:var(--space-5)">
+
+    <!-- Progress bar -->
+    <div class="progress-bar" style="margin-bottom:var(--space-5)">
+      <div class="progress-fill" :style="'width:' + pct + '%'"
+           :style="errors > 0 && !running ? 'background:var(--color-warning)' : ''">
+      </div>
+    </div>
+
+    <!-- KPIs -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);
+                gap:var(--space-4);margin-bottom:var(--space-5)">
+      <div style="text-align:center">
+        <div style="font-size:var(--text-xl);font-weight:700;
+                    font-variant-numeric:tabular-nums" x-text="total"></div>
+        <div class="text-xs text-muted" style="margin-top:2px">Всего</div>
+      </div>
+      <div style="text-align:center">
+        <div style="font-size:var(--text-xl);font-weight:700;color:var(--color-success);
+                    font-variant-numeric:tabular-nums" x-text="done"></div>
+        <div class="text-xs text-muted" style="margin-top:2px">Готово</div>
+      </div>
+      <div style="text-align:center">
+        <div style="font-size:var(--text-xl);font-weight:700;color:var(--color-error);
+                    font-variant-numeric:tabular-nums" x-text="errors"></div>
+        <div class="text-xs text-muted" style="margin-top:2px">Ошибок</div>
+      </div>
+      <div style="text-align:center">
+        <div style="font-size:var(--text-xl);font-weight:700;
+                    font-variant-numeric:tabular-nums;color:var(--color-primary)"
+             x-text="pct + '%'"></div>
+        <div class="text-xs text-muted" style="margin-top:2px">Прогресс</div>
+      </div>
+    </div>
+
+    <!-- Status pill -->
+    <div style="display:flex;align-items:center;gap:var(--space-3);
+                padding-top:var(--space-4);border-top:1px solid var(--color-divider)">
+      <template x-if="running">
+        <div style="display:flex;align-items:center;gap:var(--space-3)">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"
+               style="animation:spin 1s linear infinite;flex-shrink:0">
+            <circle cx="8" cy="8" r="6" stroke="var(--color-divider)" stroke-width="2"/>
+            <path d="M8 2a6 6 0 0 1 6 6" stroke="var(--color-primary)"
+                  stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          <span class="text-sm text-muted">Захват в процессе...</span>
+        </div>
+      </template>
+      <template x-if="!running && errors === 0">
+        <span class="badge badge-done" style="font-size:var(--text-sm);padding:4px 12px">
+          ✓ Импорт завершён успешно
+        </span>
+      </template>
+      <template x-if="!running && errors > 0">
+        <span class="badge badge-error" style="font-size:var(--text-sm);padding:4px 12px">
+          Завершён с ошибками
+        </span>
+      </template>
+      <a href="/snapshots?tag={{ tag }}" class="btn btn-secondary btn-sm"
+         style="margin-left:auto" x-show="!running">
+        Просмотр снимков →
+      </a>
+    </div>
+  </div>
+
+  <!-- Job list -->
+  <div class="card" style="padding:0">
+    <div class="card-header" style="padding:var(--space-5) var(--space-6)">
+      <h2 class="card-title">Задачи батча</h2>
+      <span class="text-xs text-muted" x-text="jobs.length + ' из ' + total"></span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="padding-left:var(--space-6)">URL</th>
+            <th>Статус</th>
+            <th>HTTP</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <template x-for="job in jobs" :key="job.id">
+            <tr>
+              <td style="padding-left:var(--space-6)">
+                <div style="max-width:380px;overflow:hidden;text-overflow:ellipsis;
+                            white-space:nowrap;font-size:var(--text-sm)"
+                     x-text="job.url" :title="job.url"></div>
+                <template x-if="job.error_message">
+                  <div style="font-size:10px;color:var(--color-error);margin-top:2px"
+                       x-text="job.error_message"></div>
+                </template>
+              </td>
+              <td>
+                <span class="badge" :class="statusBadge(job.status)"
+                      x-text="job.status"></span>
+              </td>
+              <td>
+                <span class="text-sm text-muted" x-text="job.http_status || '—'"></span>
+              </td>
+              <td style="padding-right:var(--space-4)">
+                <template x-if="job.snapshot_id">
+                  <a :href="'/snapshots/' + job.snapshot_id"
+                     class="btn btn-ghost btn-sm">
+                    <i data-lucide="eye" width="12" height="12"></i>
+                  </a>
+                </template>
+              </td>
+            </tr>
+          </template>
+          <template x-if="jobs.length === 0">
+            <tr>
+              <td colspan="4" style="text-align:center;padding:var(--space-8);
+                  color:var(--color-text-muted);font-size:var(--text-sm)">
+                Ожидаем начала...
+              </td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<style>
+@keyframes spin { to { transform: rotate(360deg); } }
+[x-cloak] { display: none !important; }
+</style>
+{% endblock %}

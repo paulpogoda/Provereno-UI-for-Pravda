@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+{% block title %}Аудит-лог{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Аудит-лог</h1>
+    <p class="page-subtitle">{{ total }} событий · только чтение</p>
+  </div>
+  <div style="display:flex;gap:var(--space-3)">
+    <a href="/audit?format=csv" class="btn btn-secondary btn-sm">
+      <i data-lucide="download" width="14" height="14"></i> CSV
+    </a>
+  </div>
+</div>
+
+<!-- Info banner -->
+<div style="background:var(--color-warning-hl);border-radius:var(--radius-md);
+            padding:var(--space-4) var(--space-5);margin-bottom:var(--space-6);
+            display:flex;align-items:flex-start;gap:var(--space-3)">
+  <i data-lucide="lock" width="16" height="16"
+     style="color:var(--color-warning);flex-shrink:0;margin-top:2px"></i>
+  <div class="text-sm" style="color:var(--color-warning)">
+    Лог доступен только администраторам и не может быть изменён или удалён через UI.
+    Хранится бессрочно.
+  </div>
+</div>
+
+{% if logs %}
+<div class="card" style="padding:0">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th style="padding-left:var(--space-6)">Событие</th>
+          <th>Актор</th>
+          <th>Объект</th>
+          <th>IP</th>
+          <th style="white-space:nowrap">Время (UTC)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for log in logs %}
+        <tr>
+          <td style="padding-left:var(--space-6)">
+            <div style="display:flex;align-items:center;gap:var(--space-2)">
+              {% set ev = log.event_type %}
+              {% if ev == 'snapshot.created' %}
+                <i data-lucide="camera" width="13" height="13"
+                   style="color:var(--color-primary);flex-shrink:0"></i>
+              {% elif ev == 'snapshot.deleted' %}
+                <i data-lucide="trash-2" width="13" height="13"
+                   style="color:var(--color-error);flex-shrink:0"></i>
+              {% elif ev == 'snapshot.exported' %}
+                <i data-lucide="download" width="13" height="13"
+                   style="color:var(--color-success);flex-shrink:0"></i>
+              {% elif ev == 'snapshot.published' or ev == 'snapshot.unpublished' %}
+                <i data-lucide="globe" width="13" height="13"
+                   style="color:var(--color-primary);flex-shrink:0"></i>
+              {% elif ev == 'user.login' %}
+                <i data-lucide="log-in" width="13" height="13"
+                   style="color:var(--color-gold);flex-shrink:0"></i>
+              {% elif ev == 'user.logout' %}
+                <i data-lucide="log-out" width="13" height="13"
+                   style="color:var(--color-text-faint);flex-shrink:0"></i>
+              {% elif ev == 'bulk.started' %}
+                <i data-lucide="layers" width="13" height="13"
+                   style="color:var(--color-primary);flex-shrink:0"></i>
+              {% elif ev == 'tag.added' or ev == 'tag.removed' %}
+                <i data-lucide="tag" width="13" height="13"
+                   style="color:var(--color-text-muted);flex-shrink:0"></i>
+              {% elif ev == 'collection.created' or ev == 'collection.deleted' %}
+                <i data-lucide="folder" width="13" height="13"
+                   style="color:var(--color-text-muted);flex-shrink:0"></i>
+              {% else %}
+                <i data-lucide="activity" width="13" height="13"
+                   style="color:var(--color-text-faint);flex-shrink:0"></i>
+              {% endif %}
+              <span class="text-sm" style="font-weight:500">{{ log.event_type }}</span>
+            </div>
+            {% if log.detail %}
+            <div class="text-xs text-faint" style="margin-top:2px;
+                 max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+                 title="{{ log.detail }}">
+              {{ log.detail | truncate(60) }}
+            </div>
+            {% endif %}
+          </td>
+          <td>
+            {% if log.actor %}
+            <a href="https://github.com/{{ log.actor }}" target="_blank"
+               rel="noopener" class="text-sm">@{{ log.actor }}</a>
+            {% else %}
+            <span class="text-faint text-xs">system</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if log.object_id %}
+            {% if log.event_type and 'snapshot' in log.event_type %}
+            <a href="/snapshots/{{ log.object_id }}"
+               class="text-xs" style="font-family:'Courier New',monospace">
+              {{ log.object_id[:12] }}…
+            </a>
+            {% else %}
+            <span class="text-xs text-muted"
+                  style="font-family:'Courier New',monospace">
+              {{ log.object_id[:12] }}…
+            </span>
+            {% endif %}
+            {% else %}
+            <span class="text-faint text-xs">—</span>
+            {% endif %}
+          </td>
+          <td>
+            <span class="text-xs text-muted"
+                  style="font-family:'Courier New',monospace">
+              {{ log.ip or '—' }}
+            </span>
+          </td>
+          <td class="text-sm text-muted" style="white-space:nowrap">
+            {{ log.created_at | datetimefmt }}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Pagination -->
+  {% if pages > 1 %}
+  <nav class="pagination" aria-label="Страницы аудит-лога">
+    {% if page > 1 %}
+    <a href="/audit?page={{ page - 1 }}" class="page-btn" aria-label="Назад">←</a>
+    {% endif %}
+    {% for p in range(1, pages + 1) %}
+      {% if p == page %}
+      <span class="page-btn active" aria-current="page">{{ p }}</span>
+      {% elif p == 1 or p == pages or (p >= page - 2 and p <= page + 2) %}
+      <a href="/audit?page={{ p }}" class="page-btn">{{ p }}</a>
+      {% elif p == 2 or p == pages - 1 %}
+      <span class="page-btn" style="pointer-events:none;opacity:.3">…</span>
+      {% endif %}
+    {% endfor %}
+    {% if page < pages %}
+    <a href="/audit?page={{ page + 1 }}" class="page-btn" aria-label="Вперёд">→</a>
+    {% endif %}
+  </nav>
+  {% endif %}
+</div>
+
+{% else %}
+<div class="empty-state">
+  <div class="empty-state-icon">
+    <i data-lucide="shield" width="48" height="48"></i>
+  </div>
+  <h3>Лог пуст</h3>
+  <p>События появятся автоматически при первых действиях пользователей.</p>
+</div>
+{% endif %}
+
+{% endblock %}

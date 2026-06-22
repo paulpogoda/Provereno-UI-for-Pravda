@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}Дашборд{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Дашборд</h1>
+    <p class="page-subtitle">Форензик-архив веб-страниц</p>
+  </div>
+</div>
+
+<!-- KPIs -->
+<div class="kpi-grid">
+  <div class="kpi-card">
+    <div class="kpi-value">{{ total_snaps }}</div>
+    <div class="kpi-label">Снимков в архиве</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-value" style="color:{% if active_jobs > 0 %}var(--color-gold){% else %}var(--color-text){% endif %}">
+      {{ active_jobs }}
+    </div>
+    <div class="kpi-label">Активных задач</div>
+  </div>
+</div>
+
+<!-- Capture form -->
+<div class="capture-form" style="max-width:680px;margin-bottom:var(--space-10)">
+  <h2 style="font-size:var(--text-base);font-weight:600;margin-bottom:var(--space-5)">
+    Новый снимок
+  </h2>
+  <form action="/jobs" method="post">
+    <div class="form-group mb-4">
+      <label class="form-label" for="url">URL страницы</label>
+      <input type="url" id="url" name="url" class="input"
+             placeholder="https://example.com/article" required autofocus>
+    </div>
+    <div class="grid-2 mb-4">
+      <div class="form-group">
+        <label class="form-label" for="ct">Условие</label>
+        <select id="ct" name="condition_type" class="select"
+                x-data="{ct:'load'}" x-model="ct">
+          <option value="load">Page load</option>
+          <option value="networkidle">Network idle</option>
+          <option value="css">CSS selector</option>
+          <option value="text">Text match</option>
+        </select>
+      </div>
+      <div class="form-group" x-data="{ct:'load'}" x-init="$watch('$root.ct',v=>ct=v)">
+        <label class="form-label">Значение условия</label>
+        <input type="text" name="condition" class="input"
+               placeholder="Selector или текст..."
+               :disabled="ct==='load'||ct==='networkidle'"
+               :style="(ct==='load'||ct==='networkidle')?'opacity:.4':''">
+      </div>
+    </div>
+    <div class="grid-2 mb-4">
+      <div class="form-group">
+        <label class="form-label" for="tags">Теги</label>
+        <input type="text" id="tags" name="tags" class="input"
+               placeholder="тег1, тег2, тег3">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="note">Заметка</label>
+        <input type="text" id="note" name="note" class="input"
+               placeholder="Необязательно">
+      </div>
+    </div>
+    <button type="submit" class="btn btn-primary">
+      <i data-lucide="camera" width="16" height="16"></i> Захватить
+    </button>
+  </form>
+</div>
+
+<!-- Recent snapshots -->
+{% if recent %}
+<div class="card">
+  <div class="card-header">
+    <h2 class="card-title">Последние снимки</h2>
+    <a href="/snapshots" class="btn btn-ghost btn-sm">Все →</a>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>URL</th><th>Статус</th><th>Доступность</th><th>Дата</th><th></th></tr></thead>
+      <tbody>
+        {% for s in recent %}
+        <tr>
+          <td>
+            <a href="/snapshots/{{ s.id }}" class="truncate"
+               style="display:block;max-width:380px" title="{{ s.url }}">
+              {{ s.url | truncate(70) }}
+            </a>
+          </td>
+          <td>
+            <span class="badge badge-{{ 'done' if s.condition_met else 'error' }}">
+              {{ 'OK' if s.condition_met else 'FAIL' }}
+            </span>
+          </td>
+          <td>
+            <span class="url-status">
+              <span class="status-dot status-dot-{{ s.url_status }}"></span>
+              <span class="text-xs text-muted">{{ s.url_status }}</span>
+            </span>
+          </td>
+          <td class="text-muted text-sm">{{ s.captured_at | datetimeshort }}</td>
+          <td>
+            <a href="/snapshots/{{ s.id }}" class="btn btn-ghost btn-sm">
+              <i data-lucide="eye" width="14" height="14"></i>
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

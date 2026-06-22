@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Вход — Provereno.Media</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <style>
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100dvh;
+      background: var(--color-bg);
+    }
+
+    .login-wrap {
+      width: 100%;
+      max-width: 420px;
+      padding: var(--space-6);
+    }
+
+    /* Wordmark above card */
+    .login-brand {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--space-3);
+      margin-bottom: var(--space-8);
+      text-align: center;
+    }
+    .login-brand-name {
+      font-size: var(--text-lg);
+      font-weight: 700;
+      color: var(--color-text);
+      letter-spacing: -.01em;
+    }
+    .login-brand-tagline {
+      font-size: var(--text-xs);
+      color: var(--color-text-muted);
+      max-width: 28ch;
+      line-height: 1.5;
+    }
+
+    /* Card */
+    .login-card {
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-xl);
+      padding: var(--space-8);
+      box-shadow: var(--shadow-md);
+    }
+    .login-card-title {
+      font-size: var(--text-base);
+      font-weight: 600;
+      margin-bottom: var(--space-2);
+    }
+    .login-card-sub {
+      font-size: var(--text-sm);
+      color: var(--color-text-muted);
+      margin-bottom: var(--space-8);
+      max-width: 32ch;
+      line-height: 1.5;
+    }
+
+    /* GitHub button */
+    .btn-github {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-3);
+      width: 100%;
+      padding: var(--space-4) var(--space-6);
+      background: var(--color-text);
+      color: var(--color-text-inverse);
+      border: none;
+      border-radius: var(--radius-md);
+      font-size: var(--text-sm);
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background var(--transition), transform var(--transition),
+                  box-shadow var(--transition);
+      box-shadow: var(--shadow-sm);
+    }
+    .btn-github:hover {
+      background: color-mix(in oklch, var(--color-text) 85%, transparent);
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-md);
+      text-decoration: none;
+    }
+    .btn-github:active {
+      transform: translateY(0);
+      box-shadow: var(--shadow-sm);
+    }
+
+    /* Divider */
+    .login-divider {
+      display: flex;
+      align-items: center;
+      gap: var(--space-4);
+      margin: var(--space-6) 0;
+      color: var(--color-text-faint);
+      font-size: var(--text-xs);
+    }
+    .login-divider::before,
+    .login-divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--color-divider);
+    }
+
+    /* Scope pills */
+    .scope-list {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-3);
+    }
+    .scope-item {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--space-3);
+      font-size: var(--text-xs);
+      color: var(--color-text-muted);
+    }
+    .scope-icon {
+      width: 22px;
+      height: 22px;
+      border-radius: var(--radius-sm);
+      background: var(--color-surface-offset);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      color: var(--color-primary);
+    }
+    .scope-item strong {
+      display: block;
+      color: var(--color-text);
+      font-weight: 500;
+      margin-bottom: 1px;
+    }
+
+    /* Error banner */
+    .login-error {
+      background: var(--color-error-hl);
+      border-radius: var(--radius-md);
+      padding: var(--space-3) var(--space-4);
+      font-size: var(--text-sm);
+      color: var(--color-error);
+      margin-bottom: var(--space-5);
+      display: flex;
+      align-items: flex-start;
+      gap: var(--space-2);
+    }
+
+    /* Footer links */
+    .login-footer {
+      margin-top: var(--space-6);
+      text-align: center;
+      font-size: var(--text-xs);
+      color: var(--color-text-faint);
+    }
+
+    /* Theme toggle */
+    .theme-btn {
+      position: fixed;
+      top: var(--space-5);
+      right: var(--space-5);
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-full);
+      width: 36px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--color-text-muted);
+      box-shadow: var(--shadow-sm);
+      transition: all var(--transition);
+    }
+    .theme-btn:hover {
+      color: var(--color-text);
+      box-shadow: var(--shadow-md);
+    }
+  </style>
+</head>
+<body>
+
+<!-- Dark mode toggle -->
+<button class="theme-btn" data-theme-toggle aria-label="Переключить тему">
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+       stroke="currentColor" stroke-width="2">
+    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+  </svg>
+</button>
+
+<div class="login-wrap">
+
+  <!-- Brand -->
+  <div class="login-brand">
+    <svg width="48" height="48" viewBox="0 0 48 48" fill="none"
+         aria-label="Provereno logo">
+      <circle cx="21" cy="21" r="15"
+              stroke="var(--color-primary)" stroke-width="3"/>
+      <path d="M32 32L43 43"
+            stroke="var(--color-primary)" stroke-width="3" stroke-linecap="round"/>
+      <path d="M15 21l4.5 4.5L28 16"
+            stroke="var(--color-primary)" stroke-width="2.5"
+            stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <div>
+      <div class="login-brand-name">Provereno.Media</div>
+      <div class="login-brand-tagline">
+        Форензик-архив веб-страниц для журналистов и фактчекеров
+      </div>
+    </div>
+  </div>
+
+  <!-- Card -->
+  <div class="login-card">
+
+    <!-- Error -->
+    {% if error %}
+    <div class="login-error">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="2" style="flex-shrink:0;margin-top:1px">
+        <circle cx="12" cy="12" r="10"/>
+        <path d="M12 8v4M12 16h.01"/>
+      </svg>
+      <span>{{ error }}</span>
+    </div>
+    {% endif %}
+
+    <div class="login-card-title">Вход в систему</div>
+    <div class="login-card-sub">
+      Используйте аккаунт GitHub. Доступ предоставляется администратором.
+    </div>
+
+    <!-- GitHub OAuth button -->
+    <a href="/auth/github" class="btn-github">
+      <!-- GitHub mark -->
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"
+           aria-hidden="true">
+        <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18
+                 6.839 9.504.5.092.682-.217.682-.483
+                 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343
+                 -.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608
+                 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088
+                 2.91.832.092-.647.35-1.088.636-1.338
+                 -2.22-.253-4.555-1.113-4.555-4.951
+                 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65
+                 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0 1 12 6.844
+                 a9.59 9.59 0 0 1 2.504.337c1.909-1.296 2.747-1.027
+                 2.747-1.027.546 1.379.202 2.398.1 2.651
+                 .64.7 1.028 1.595 1.028 2.688
+                 0 3.848-2.339 4.695-4.566 4.943
+                 .359.309.678.92.678 1.855
+                 0 1.338-.012 2.419-.012 2.747
+                 0 .268.18.58.688.482
+                 A10.019 10.019 0 0 0 22 12.017
+                 C22 6.484 17.522 2 12 2z"/>
+      </svg>
+      Войти через GitHub
+    </a>
+
+    <div class="login-divider">запрашиваемые разрешения</div>
+
+    <!-- OAuth scopes explanation -->
+    <div class="scope-list">
+      <div class="scope-item">
+        <div class="scope-icon">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2.5">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+            <circle cx="12" cy="7" r="4"/>
+          </svg>
+        </div>
+        <div>
+          <strong>read:user</strong>
+          Имя пользователя и публичный профиль
+        </div>
+      </div>
+      <div class="scope-item">
+        <div class="scope-icon">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2.5">
+            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2
+                     2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+            <polyline points="22,6 12,13 2,6"/>
+          </svg>
+        </div>
+        <div>
+          <strong>user:email</strong>
+          Основной email для уведомлений (не публикуется)
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="login-footer">
+    Закрытая система · доступ по приглашению ·
+    <a href="https://github.com/provereno-media" target="_blank"
+       rel="noopener" style="color:var(--color-text-faint)">GitHub</a>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  const t = document.querySelector('[data-theme-toggle]');
+  const r = document.documentElement;
+  let d = matchMedia('(prefers-color-scheme:dark)').matches ? 'dark' : 'light';
+  try { d = localStorage.getItem('theme') || d; } catch(_) {}
+  r.setAttribute('data-theme', d);
+  function upd() {
+    if (!t) return;
+    t.innerHTML = d === 'dark'
+      ? '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>'
+      : '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+  }
+  upd();
+  t && t.addEventListener('click', () => {
+    d = d === 'dark' ? 'light' : 'dark';
+    r.setAttribute('data-theme', d);
+    try { localStorage.setItem('theme', d); } catch(_) {}
+    upd();
+  });
+})();
+</script>
+</body>
+</html>

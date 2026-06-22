@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+{% block title %}Снимки{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Снимки</h1>
+    <p class="page-subtitle">{{ total }} архивных снимков</p>
+  </div>
+  <a href="/" class="btn btn-primary">
+    <i data-lucide="camera" width="16" height="16"></i> Новый снимок
+  </a>
+</div>
+
+<!-- Filters -->
+<form method="get" action="/snapshots"
+      style="display:flex;gap:var(--space-3);flex-wrap:wrap;
+             margin-bottom:var(--space-6);align-items:flex-end">
+  <div style="flex:1;min-width:200px">
+    <label class="form-label" style="font-size:var(--text-xs);margin-bottom:4px">
+      Поиск по URL
+    </label>
+    <div style="position:relative">
+      <i data-lucide="search" width="14" height="14"
+         style="position:absolute;left:12px;top:50%;transform:translateY(-50%);
+                color:var(--color-text-muted);pointer-events:none"></i>
+      <input type="text" name="q" value="{{ q }}" class="input"
+             placeholder="https://..." style="padding-left:36px">
+    </div>
+  </div>
+  <div style="min-width:160px">
+    <label class="form-label" style="font-size:var(--text-xs);margin-bottom:4px">Тег</label>
+    <select name="tag" class="select">
+      <option value="">— Все теги —</option>
+      {% for t in all_tags %}
+      <option value="{{ t }}" {% if t == tag %}selected{% endif %}>{{ t }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <button type="submit" class="btn btn-secondary">Найти</button>
+  {% if q or tag %}
+  <a href="/snapshots" class="btn btn-ghost">× Сбросить</a>
+  {% endif %}
+</form>
+
+<!-- Active filters display -->
+{% if tag %}
+<div style="display:flex;gap:var(--space-2);align-items:center;margin-bottom:var(--space-4)">
+  <span class="text-xs text-muted">Тег:</span>
+  <span class="badge badge-queued">{{ tag }}</span>
+  <a href="/snapshots{% if q %}?q={{ q }}{% endif %}" class="text-xs text-muted"
+     style="text-decoration:none;opacity:.6">× убрать</a>
+</div>
+{% endif %}
+
+<!-- Snapshot table -->
+{% if snapshots %}
+<div class="card" style="padding:0">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th style="padding-left:var(--space-6)">URL</th>
+          <th>Статус</th>
+          <th>Доступность</th>
+          <th>Теги</th>
+          <th>Дата</th>
+          <th style="width:90px"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in snapshots %}
+        <tr>
+          <td style="padding-left:var(--space-6)">
+            <a href="/snapshots/{{ s.id }}"
+               style="display:block;max-width:400px;overflow:hidden;
+                      text-overflow:ellipsis;white-space:nowrap;color:var(--color-text);
+                      font-weight:500;text-decoration:none"
+               title="{{ s.url }}">
+              {{ s.url | truncate(70) }}
+            </a>
+            {% if s.final_url and s.final_url != s.url %}
+            <div class="text-xs text-faint" style="margin-top:2px;
+                 overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:400px"
+                 title="{{ s.final_url }}">
+              ↳ {{ s.final_url | truncate(60) }}
+            </div>
+            {% endif %}
+          </td>
+          <td>
+            <div style="display:flex;flex-direction:column;gap:3px">
+              {% if s.http_status %}
+              <span class="badge badge-{{ 'done' if s.http_status < 400 else 'error' }}"
+                    style="width:fit-content">
+                {{ s.http_status }}
+              </span>
+              {% endif %}
+              <span class="badge badge-{{ 'done' if s.condition_met else 'error' }}"
+                    style="width:fit-content">
+                {{ '✓ OK' if s.condition_met else '✗ FAIL' }}
+              </span>
+            </div>
+          </td>
+          <td>
+            <span class="url-status">
+              <span class="status-dot status-dot-{{ s.url_status }}"></span>
+              <span class="text-xs text-muted">{{ s.url_status }}</span>
+            </span>
+          </td>
+          <td>
+            <div style="display:flex;flex-wrap:wrap;gap:4px;max-width:160px">
+              {# Tags are not pre-loaded here for perf — link filters to tag query #}
+              {% if s.is_public %}
+              <span class="badge" style="background:var(--color-primary-hl);
+                    color:var(--color-primary)">
+                <i data-lucide="globe" width="9" height="9"></i>
+              </span>
+              {% endif %}
+            </div>
+          </td>
+          <td class="text-muted text-sm" style="white-space:nowrap">
+            {{ s.captured_at | datetimeshort }}
+          </td>
+          <td>
+            <div style="display:flex;gap:4px;justify-content:flex-end;
+                        padding-right:var(--space-4)">
+              <a href="/snapshots/{{ s.id }}" class="btn btn-ghost btn-sm"
+                 title="Просмотр">
+                <i data-lucide="eye" width="14" height="14"></i>
+              </a>
+              <a href="/snapshots/{{ s.id }}/export" class="btn btn-ghost btn-sm"
+                 title="Forensic ZIP">
+                <i data-lucide="download" width="14" height="14"></i>
+              </a>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Pagination -->
+  {% if pages > 1 %}
+  <nav class="pagination" aria-label="Страницы">
+    {% if page > 1 %}
+    <a href="?q={{ q }}&tag={{ tag }}&page={{ page - 1 }}" class="page-btn"
+       aria-label="Назад">←</a>
+    {% endif %}
+    {% for p in range(1, pages + 1) %}
+      {% if p == page %}
+      <span class="page-btn active" aria-current="page">{{ p }}</span>
+      {% elif p == 1 or p == pages or (p >= page - 2 and p <= page + 2) %}
+      <a href="?q={{ q }}&tag={{ tag }}&page={{ p }}" class="page-btn">{{ p }}</a>
+      {% elif p == 2 or p == pages - 1 %}
+      <span class="page-btn" style="pointer-events:none;opacity:.3">…</span>
+      {% endif %}
+    {% endfor %}
+    {% if page < pages %}
+    <a href="?q={{ q }}&tag={{ tag }}&page={{ page + 1 }}" class="page-btn"
+       aria-label="Вперёд">→</a>
+    {% endif %}
+  </nav>
+  {% endif %}
+</div>
+
+{% else %}
+<div class="empty-state">
+  <div class="empty-state-icon">
+    <i data-lucide="camera-off" width="48" height="48"></i>
+  </div>
+  {% if q or tag %}
+  <h3>Ничего не найдено</h3>
+  <p>По запросу «{{ q or tag }}» снимков нет. Попробуйте другой фильтр.</p>
+  <a href="/snapshots" class="btn btn-secondary">Сбросить фильтры</a>
+  {% else %}
+  <h3>Архив пуст</h3>
+  <p>Создайте первый снимок — сохраните страницу как доказательство.</p>
+  <a href="/" class="btn btn-primary">
+    <i data-lucide="camera" width="16" height="16"></i> Новый снимок
+  </a>
+  {% endif %}
+</div>
+{% endif %}
+
+{% endblock %}

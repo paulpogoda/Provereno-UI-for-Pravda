@@ -1,0 +1,225 @@
+{% extends "base.html" %}
+{% block title %}{{ collection.name }}{% endblock %}
+{% block content %}
+
+<div x-data="{addOpen:false, confirmDelete:false}">
+
+  <!-- Header -->
+  <div class="page-header">
+    <div style="min-width:0;flex:1">
+      <a href="/collections" class="btn btn-ghost btn-sm"
+         style="margin-bottom:var(--space-3)">← Коллекции</a>
+      <div style="display:flex;align-items:center;gap:var(--space-3)">
+        <div style="width:32px;height:32px;border-radius:var(--radius-md);
+                    background:var(--color-primary-hl);display:flex;align-items:center;
+                    justify-content:center;flex-shrink:0">
+          <i data-lucide="folder" width="16" height="16"
+             style="color:var(--color-primary)"></i>
+        </div>
+        <h1 class="page-title">{{ collection.name }}</h1>
+      </div>
+      {% if collection.description %}
+      <p class="text-sm text-muted" style="margin-top:var(--space-2);max-width:56ch">
+        {{ collection.description }}
+      </p>
+      {% endif %}
+      <div class="text-xs text-faint" style="margin-top:var(--space-2)">
+        {{ total }} снимков · создана {{ collection.created_at | datetimefmt }}
+        · автор @{{ collection.created_by }}
+      </div>
+    </div>
+
+    <div style="display:flex;gap:var(--space-2);flex-shrink:0">
+      <button @click="addOpen=true" class="btn btn-primary btn-sm">
+        <i data-lucide="plus" width="14" height="14"></i> Добавить снимки
+      </button>
+      <button @click="confirmDelete=true"
+              class="btn btn-ghost btn-sm" style="color:var(--color-error)">
+        <i data-lucide="trash-2" width="14" height="14"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- Delete collection modal -->
+  <template x-if="confirmDelete">
+    <div style="position:fixed;inset:0;background:oklch(0.1 0 0/0.5);
+                display:flex;align-items:center;justify-content:center;z-index:100">
+      <div class="card" style="max-width:380px;width:100%;margin:var(--space-6)">
+        <h2 style="font-size:var(--text-base);font-weight:600;margin-bottom:var(--space-3)">
+          Удалить коллекцию?
+        </h2>
+        <p class="text-sm text-muted" style="margin-bottom:var(--space-6)">
+          Сами снимки останутся в архиве. Удаляется только группировка.
+        </p>
+        <div style="display:flex;gap:var(--space-3);justify-content:flex-end">
+          <button class="btn btn-ghost" @click="confirmDelete=false">Отмена</button>
+          <form action="/collections/{{ collection.id }}/delete" method="post">
+            <button type="submit" class="btn btn-danger">Удалить</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <!-- Add snapshots drawer -->
+  <template x-if="addOpen">
+    <div style="position:fixed;inset:0;background:oklch(0.1 0 0/0.5);
+                display:flex;align-items:flex-end;justify-content:center;z-index:100"
+         @click.self="addOpen=false">
+      <div style="background:var(--color-surface);border-radius:var(--radius-xl) var(--radius-xl) 0 0;
+                  width:100%;max-width:700px;max-height:80dvh;
+                  display:flex;flex-direction:column;overflow:hidden"
+           x-data="{q:''}">
+        <div style="padding:var(--space-6);border-bottom:1px solid var(--color-border);
+                    display:flex;align-items:center;justify-content:space-between">
+          <h2 style="font-size:var(--text-base);font-weight:600">Добавить снимки</h2>
+          <button @click="addOpen=false" class="btn btn-ghost btn-sm">
+            <i data-lucide="x" width="16" height="16"></i>
+          </button>
+        </div>
+        <div style="padding:var(--space-4) var(--space-6);
+                    border-bottom:1px solid var(--color-divider)">
+          <input type="text" class="input" placeholder="Фильтр по URL..."
+                 x-model="q" style="max-width:400px">
+        </div>
+        <div style="overflow-y:auto;flex:1">
+          {% if all_snapshots %}
+          {% for s in all_snapshots %}
+          <div style="display:flex;align-items:center;justify-content:space-between;
+                      padding:var(--space-4) var(--space-6);
+                      border-bottom:1px solid var(--color-divider)"
+               x-show="!q || '{{ s.url }}'.toLowerCase().includes(q.toLowerCase())">
+            <div style="min-width:0;flex:1;margin-right:var(--space-4)">
+              <div class="text-sm" style="font-weight:500;overflow:hidden;
+                   text-overflow:ellipsis;white-space:nowrap" title="{{ s.url }}">
+                {{ s.url | truncate(65) }}
+              </div>
+              <div class="text-xs text-faint" style="margin-top:2px">
+                {{ s.captured_at | datetimeshort }}
+              </div>
+            </div>
+            <form action="/collections/{{ collection.id }}/snapshots" method="post"
+                  style="flex-shrink:0">
+              <input type="hidden" name="snapshot_id" value="{{ s.id }}">
+              <button type="submit" class="btn btn-secondary btn-sm">+ Добавить</button>
+            </form>
+          </div>
+          {% endfor %}
+          {% else %}
+          <div class="empty-state" style="padding:var(--space-8) 0">
+            <div class="empty-state-icon">
+              <i data-lucide="camera-off" width="36" height="36"></i>
+            </div>
+            <h3>Снимков нет</h3>
+            <p>Сначала создайте хотя бы один снимок.</p>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <!-- Snapshots table -->
+  {% if snapshots %}
+  <div class="card" style="padding:0">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="padding-left:var(--space-6)">URL</th>
+            <th>Статус</th>
+            <th>Доступность</th>
+            <th>Дата</th>
+            <th style="width:110px"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in snapshots %}
+          <tr>
+            <td style="padding-left:var(--space-6)">
+              <a href="/snapshots/{{ s.id }}"
+                 style="display:block;max-width:380px;overflow:hidden;
+                        text-overflow:ellipsis;white-space:nowrap;
+                        color:var(--color-text);font-weight:500;
+                        text-decoration:none"
+                 title="{{ s.url }}">
+                {{ s.url | truncate(65) }}
+              </a>
+            </td>
+            <td>
+              <span class="badge badge-{{ 'done' if s.condition_met else 'error' }}">
+                {{ '✓ OK' if s.condition_met else '✗ FAIL' }}
+              </span>
+            </td>
+            <td>
+              <span class="url-status">
+                <span class="status-dot status-dot-{{ s.url_status }}"></span>
+                <span class="text-xs text-muted">{{ s.url_status }}</span>
+              </span>
+            </td>
+            <td class="text-sm text-muted" style="white-space:nowrap">
+              {{ s.captured_at | datetimeshort }}
+            </td>
+            <td style="padding-right:var(--space-4)">
+              <div style="display:flex;gap:4px;justify-content:flex-end">
+                <a href="/snapshots/{{ s.id }}" class="btn btn-ghost btn-sm"
+                   title="Просмотр">
+                  <i data-lucide="eye" width="14" height="14"></i>
+                </a>
+                <form action="/collections/{{ collection.id }}/snapshots/{{ s.id }}/remove"
+                      method="post">
+                  <button type="submit" class="btn btn-ghost btn-sm"
+                          style="color:var(--color-error)"
+                          title="Убрать из коллекции">
+                    <i data-lucide="x" width="14" height="14"></i>
+                  </button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if pages > 1 %}
+    <nav class="pagination" aria-label="Страницы">
+      {% if page > 1 %}
+      <a href="/collections/{{ collection.id }}?page={{ page - 1 }}"
+         class="page-btn">←</a>
+      {% endif %}
+      {% for p in range(1, pages + 1) %}
+        {% if p == page %}
+        <span class="page-btn active">{{ p }}</span>
+        {% elif p == 1 or p == pages or (p >= page - 2 and p <= page + 2) %}
+        <a href="/collections/{{ collection.id }}?page={{ p }}"
+           class="page-btn">{{ p }}</a>
+        {% elif p == 2 or p == pages - 1 %}
+        <span class="page-btn" style="pointer-events:none;opacity:.3">…</span>
+        {% endif %}
+      {% endfor %}
+      {% if page < pages %}
+      <a href="/collections/{{ collection.id }}?page={{ page + 1 }}"
+         class="page-btn">→</a>
+      {% endif %}
+    </nav>
+    {% endif %}
+  </div>
+
+  {% else %}
+  <div class="empty-state">
+    <div class="empty-state-icon">
+      <i data-lucide="inbox" width="48" height="48"></i>
+    </div>
+    <h3>Коллекция пуста</h3>
+    <p>Добавьте снимки из архива в эту коллекцию.</p>
+    <button @click="addOpen=true" class="btn btn-primary">
+      <i data-lucide="plus" width="16" height="16"></i> Добавить снимки
+    </button>
+  </div>
+  {% endif %}
+
+</div><!-- /x-data -->
+
+<style>[x-cloak]{display:none!important}</style>
+{% endblock %}

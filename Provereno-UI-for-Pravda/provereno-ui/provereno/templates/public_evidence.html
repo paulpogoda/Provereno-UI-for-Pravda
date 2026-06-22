@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Архивный снимок — {{ snap.url | truncate(60) }}</title>
+
+  <!-- OpenGraph for journalists sharing evidence -->
+  <meta property="og:title" content="Архивный снимок: {{ snap.url | truncate(80) }}">
+  <meta property="og:description"
+        content="Форензик-архив страницы. SHA-256: {{ snap.mhtml_sha256 | truncate(16) if snap.mhtml_sha256 else 'N/A' }}. Захвачено: {{ snap.captured_at | datetimefmt }}.">
+  {% if snap.screenshot_path %}
+  <meta property="og:image" content="/public/evidence/{{ snap.id }}/screenshot">
+  {% endif %}
+
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js" defer></script>
+  <style>
+    .pub-header {
+      background: var(--color-surface);
+      border-bottom: 1px solid var(--color-border);
+      padding: var(--space-4) var(--space-8);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: var(--space-4);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .pub-logo {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      text-decoration: none;
+      color: var(--color-text);
+    }
+    .pub-logo-text { font-weight: 700; font-size: var(--text-sm); }
+    .pub-logo-sub  { font-size: var(--text-xs); color: var(--color-text-muted); }
+    .pub-content   { max-width: 1060px; margin: 0 auto; padding: var(--space-8) var(--space-6); }
+    .integrity-row {
+      display: flex; align-items: flex-start; gap: var(--space-4);
+      padding: var(--space-4) 0;
+      border-bottom: 1px solid var(--color-divider);
+    }
+    .integrity-row:last-child { border-bottom: none; }
+    .integrity-label {
+      width: 180px; flex-shrink: 0;
+      font-size: var(--text-xs); color: var(--color-text-muted);
+      font-weight: 600; text-transform: uppercase; letter-spacing: .04em;
+      padding-top: 2px;
+    }
+    .integrity-value { font-size: var(--text-sm); word-break: break-all; }
+    @media (max-width: 600px) {
+      .integrity-row    { flex-direction: column; gap: var(--space-2); }
+      .integrity-label  { width: auto; }
+      .pub-header       { padding: var(--space-4); }
+      .pub-content      { padding: var(--space-5) var(--space-4); }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Sticky header -->
+<header class="pub-header">
+  <a href="/" class="pub-logo">
+    <svg width="24" height="24" viewBox="0 0 28 28" fill="none" aria-label="Provereno">
+      <circle cx="12" cy="12" r="9" stroke="var(--color-primary)" stroke-width="2.2"/>
+      <path d="M18 18L25 25" stroke="var(--color-primary)" stroke-width="2.2" stroke-linecap="round"/>
+      <path d="M8.5 12l2.5 2.5 4.5-4.5" stroke="var(--color-primary)"
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <div>
+      <div class="pub-logo-text">Provereno.Media</div>
+      <div class="pub-logo-sub">Форензик-архив</div>
+    </div>
+  </a>
+
+  <div style="display:flex;gap:var(--space-3);align-items:center;flex-wrap:wrap">
+    <span class="badge badge-done">
+      <i data-lucide="shield-check" width="11" height="11"></i>
+      Верифицировано
+    </span>
+    <a href="/public/evidence/{{ snap.id }}/screenshot"
+       class="btn btn-secondary btn-sm" download="screenshot-{{ snap.id[:8] }}.png">
+      <i data-lucide="image" width="13" height="13"></i> Скриншот
+    </a>
+    <button data-theme-toggle class="btn btn-ghost btn-sm" aria-label="Тема"
+            style="padding:6px">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="2">
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+      </svg>
+    </button>
+  </div>
+</header>
+
+<main class="pub-content">
+
+  <!-- Evidence banner -->
+  <div style="background:var(--color-primary-hl);border-radius:var(--radius-lg);
+              padding:var(--space-5) var(--space-6);margin-bottom:var(--space-8);
+              display:flex;align-items:flex-start;gap:var(--space-4)">
+    <i data-lucide="info" width="18" height="18"
+       style="color:var(--color-primary);flex-shrink:0;margin-top:2px"></i>
+    <div>
+      <div style="font-size:var(--text-sm);font-weight:600;color:var(--color-primary);
+                  margin-bottom:4px">
+        Этот снимок является форензик-доказательством
+      </div>
+      <div class="text-sm text-muted">
+        Страница была захвачена с сохранением MHTML-архива и SHA-256 хэшей.
+        Подлинность снимка может быть независимо верифицирована.
+      </div>
+    </div>
+  </div>
+
+  <!-- Two-column layout -->
+  <div style="display:grid;grid-template-columns:1fr 340px;gap:var(--space-8);
+              align-items:start">
+
+    <!-- Screenshot -->
+    <div>
+      <h2 style="font-size:var(--text-base);font-weight:600;
+                 margin-bottom:var(--space-4)">Скриншот страницы</h2>
+      {% if snap.screenshot_path %}
+      <div class="screenshot-wrap">
+        <img src="/public/evidence/{{ snap.id }}/screenshot"
+             alt="Скриншот страницы {{ snap.url }}"
+             width="1280" height="900" loading="lazy"
+             style="width:100%;height:auto">
+      </div>
+      <div class="text-xs text-faint" style="margin-top:var(--space-3);text-align:center">
+        Полная страница · Playwright Chromium · 1280 px
+      </div>
+      {% else %}
+      <div class="empty-state" style="padding:var(--space-10) 0">
+        <div class="empty-state-icon">
+          <i data-lucide="image-off" width="40" height="40"></i>
+        </div>
+        <h3>Скриншот недоступен</h3>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Integrity card -->
+    <div style="position:sticky;top:80px">
+      <div class="card">
+        <h2 style="font-size:var(--text-base);font-weight:600;
+                   margin-bottom:var(--space-5)">
+          Целостность и метаданные
+        </h2>
+
+        <div class="integrity-row">
+          <div class="integrity-label">URL</div>
+          <div class="integrity-value">
+            <a href="{{ snap.url }}" target="_blank" rel="noopener"
+               style="word-break:break-all">{{ snap.url }}</a>
+          </div>
+        </div>
+
+        {% if snap.final_url and snap.final_url != snap.url %}
+        <div class="integrity-row">
+          <div class="integrity-label">Финальный URL</div>
+          <div class="integrity-value">
+            <a href="{{ snap.final_url }}" target="_blank" rel="noopener"
+               style="word-break:break-all">{{ snap.final_url }}</a>
+          </div>
+        </div>
+        {% endif %}
+
+        <div class="integrity-row">
+          <div class="integrity-label">Захвачено</div>
+          <div class="integrity-value">{{ snap.captured_at | datetimefmt }}</div>
+        </div>
+
+        <div class="integrity-row">
+          <div class="integrity-label">HTTP статус</div>
+          <div class="integrity-value">
+            <span class="badge badge-{{ 'done' if snap.http_status and snap.http_status < 400 else 'error' }}">
+              {{ snap.http_status or '—' }}
+            </span>
+          </div>
+        </div>
+
+        {% if snap.mhtml_sha256 %}
+        <div class="integrity-row">
+          <div class="integrity-label">SHA-256 MHTML</div>
+          <div class="integrity-value">
+            <span class="hash" style="font-size:9px">{{ snap.mhtml_sha256 }}</span>
+          </div>
+        </div>
+        {% endif %}
+
+        <div class="integrity-row">
+          <div class="integrity-label">Snapshot ID</div>
+          <div class="integrity-value">
+            <span class="hash" style="font-size:9px">{{ snap.id }}</span>
+          </div>
+        </div>
+
+        {% if snap.creator %}
+        <div class="integrity-row">
+          <div class="integrity-label">Автор</div>
+          <div class="integrity-value">
+            <a href="https://github.com/{{ snap.creator }}" target="_blank"
+               rel="noopener">@{{ snap.creator }}</a>
+          </div>
+        </div>
+        {% endif %}
+
+        <div class="integrity-row">
+          <div class="integrity-label">Доступность</div>
+          <div class="integrity-value">
+            <span class="url-status">
+              <span class="status-dot status-dot-{{ snap.url_status }}"></span>
+              <span>{{ snap.url_status }}</span>
+            </span>
+          </div>
+        </div>
+
+        <!-- Verify instructions -->
+        <div style="margin-top:var(--space-5);padding-top:var(--space-4);
+                    border-top:1px solid var(--color-divider)">
+          <div class="text-xs text-muted" style="margin-bottom:var(--space-3);
+               font-weight:600;text-transform:uppercase;letter-spacing:.04em">
+            Самостоятельная проверка
+          </div>
+          <div style="background:var(--color-surface-offset);
+                      border-radius:var(--radius-md);
+                      padding:var(--space-3) var(--space-4);
+                      font-family:'Courier New',monospace;font-size:10px;
+                      color:var(--color-text-muted);line-height:1.8">
+            <div style="color:var(--color-text-faint)"># скачайте MHTML и проверьте хэш:</div>
+            <div>sha256sum archive.mhtml</div>
+            <div style="color:var(--color-text-faint)"># должен совпасть с:</div>
+            <div style="word-break:break-all;color:var(--color-primary)">
+              {{ snap.mhtml_sha256 or 'N/A' }}
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div><!-- /grid -->
+
+  <!-- Footer -->
+  <footer style="margin-top:var(--space-16);padding-top:var(--space-8);
+                 border-top:1px solid var(--color-divider);
+                 display:flex;align-items:center;justify-content:space-between;
+                 flex-wrap:wrap;gap:var(--space-4)">
+    <div class="text-xs text-faint">
+      Создано Provereno.Media Web Evidence Archive
+    </div>
+    <div class="text-xs text-faint">
+      Постоянная ссылка:
+      <span style="font-family:'Courier New',monospace">
+        /public/evidence/{{ snap.id }}
+      </span>
+    </div>
+  </footer>
+
+</main>
+
+<script>
+(function(){
+  const t=document.querySelector('[data-theme-toggle]');
+  const r=document.documentElement;
+  let d=matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light';
+  r.setAttribute('data-theme',d);
+  function upd(){if(!t)return;t.innerHTML=d==='dark'
+    ?'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>'
+    :'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';}
+  upd();
+  t&&t.addEventListener('click',()=>{d=d==='dark'?'light':'dark';
+    r.setAttribute('data-theme',d);upd();});
+})();
+document.addEventListener('DOMContentLoaded',()=>lucide&&lucide.createIcons());
+</script>
+</body>
+</html>

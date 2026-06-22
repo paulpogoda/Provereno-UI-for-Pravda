@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block title %}Коллекции{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Коллекции</h1>
+    <p class="page-subtitle">{{ collections | length }} коллекций</p>
+  </div>
+</div>
+
+<!-- Create collection form -->
+<div class="card" style="max-width:560px;margin-bottom:var(--space-8)"
+     x-data="{open:false}">
+  <button @click="open=!open"
+          style="display:flex;align-items:center;justify-content:space-between;
+                 width:100%;background:none;border:none;cursor:pointer;
+                 font-size:var(--text-sm);font-weight:600;color:var(--color-text)">
+    <span style="display:flex;align-items:center;gap:var(--space-3)">
+      <i data-lucide="folder-plus" width="16" height="16"
+         style="color:var(--color-primary)"></i>
+      Создать коллекцию
+    </span>
+    <i data-lucide="chevron-down" width="16" height="16"
+       :style="open ? 'transform:rotate(180deg)' : ''"
+       style="transition:transform var(--transition);color:var(--color-text-muted)"></i>
+  </button>
+
+  <div x-show="open" x-cloak
+       style="margin-top:var(--space-5);padding-top:var(--space-5);
+              border-top:1px solid var(--color-divider)">
+    <form action="/collections" method="post">
+      <div class="form-group" style="margin-bottom:var(--space-4)">
+        <label class="form-label" for="col-name">Название</label>
+        <input type="text" id="col-name" name="name" class="input"
+               placeholder="Напр.: Выборы-2026, RT-дезинформация..."
+               maxlength="128" required>
+      </div>
+      <div class="form-group" style="margin-bottom:var(--space-5)">
+        <label class="form-label" for="col-desc">Описание
+          <span class="text-faint" style="font-weight:400">(необязательно)</span>
+        </label>
+        <textarea id="col-desc" name="description" class="textarea" rows="2"
+                  maxlength="512"
+                  placeholder="Краткое описание коллекции..."></textarea>
+      </div>
+      <button type="submit" class="btn btn-primary">
+        <i data-lucide="folder-plus" width="14" height="14"></i>
+        Создать
+      </button>
+    </form>
+  </div>
+</div>
+
+<!-- Collections grid -->
+{% if collections %}
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));
+            gap:var(--space-4)">
+  {% for item in collections %}
+  {% set col = item.collection %}
+  {% set cnt = item.count %}
+  <a href="/collections/{{ col.id }}"
+     style="text-decoration:none;display:block"
+     class="card" style="transition:box-shadow var(--transition),
+                         transform var(--transition)"
+     onmouseover="this.style.boxShadow='var(--shadow-md)';this.style.transform='translateY(-2px)'"
+     onmouseout="this.style.boxShadow='var(--shadow-sm)';this.style.transform='translateY(0)'">
+    <div style="display:flex;align-items:flex-start;
+                justify-content:space-between;gap:var(--space-3)">
+      <div style="width:36px;height:36px;border-radius:var(--radius-md);
+                  background:var(--color-primary-hl);display:flex;align-items:center;
+                  justify-content:center;flex-shrink:0">
+        <i data-lucide="folder" width="18" height="18"
+           style="color:var(--color-primary)"></i>
+      </div>
+      <span class="badge badge-queued" style="flex-shrink:0">
+        {{ cnt }} снимк{{ 'ов' if cnt == 0 or cnt >= 5 else ('ок' if cnt >= 2 else '') }}
+      </span>
+    </div>
+
+    <div style="margin-top:var(--space-4)">
+      <div style="font-size:var(--text-base);font-weight:600;
+                  color:var(--color-text);margin-bottom:4px">
+        {{ col.name | truncate(48) }}
+      </div>
+      {% if col.description %}
+      <div class="text-sm text-muted"
+           style="overflow:hidden;text-overflow:ellipsis;
+                  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">
+        {{ col.description }}
+      </div>
+      {% endif %}
+    </div>
+
+    <div style="margin-top:var(--space-5);padding-top:var(--space-4);
+                border-top:1px solid var(--color-divider);
+                display:flex;align-items:center;justify-content:space-between">
+      <span class="text-xs text-faint">
+        Создана {{ col.created_at | datetimeshort }}
+      </span>
+      <span style="font-size:var(--text-xs);color:var(--color-primary);
+                   font-weight:500">
+        Открыть →
+      </span>
+    </div>
+  </a>
+  {% endfor %}
+</div>
+
+{% else %}
+<div class="empty-state">
+  <div class="empty-state-icon">
+    <i data-lucide="folder-open" width="48" height="48"></i>
+  </div>
+  <h3>Коллекций пока нет</h3>
+  <p>Группируйте снимки по темам расследований или источникам.</p>
+  <button onclick="document.querySelector('[\@click]').click()"
+          class="btn btn-primary">
+    <i data-lucide="folder-plus" width="16" height="16"></i>
+    Создать первую коллекцию
+  </button>
+</div>
+{% endif %}
+
+<style>[x-cloak]{display:none!important}</style>
+{% endblock %}

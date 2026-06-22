@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{% block title %}Provereno{% endblock %} — Provereno.Media</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js" defer></script>
+</head>
+<body x-data>
+<div class="app">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-label="Provereno logo">
+        <circle cx="12" cy="12" r="9" stroke="var(--color-primary)" stroke-width="2.2"/>
+        <path d="M18 18L25 25" stroke="var(--color-primary)" stroke-width="2.2" stroke-linecap="round"/>
+        <path d="M8.5 12l2.5 2.5 4.5-4.5" stroke="var(--color-primary)"
+              stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <div>
+        <div class="sidebar-logo-text">Provereno</div>
+        <div class="sidebar-logo-sub">Web Evidence Archive</div>
+      </div>
+    </div>
+    <nav class="sidebar-nav" aria-label="Main navigation">
+      <a href="/" class="nav-item {% if active=='dashboard' %}active{% endif %}">
+        <i data-lucide="layout-dashboard" width="16" height="16"></i> Дашборд
+      </a>
+      <a href="/snapshots" class="nav-item {% if active=='snapshots' %}active{% endif %}">
+        <i data-lucide="camera" width="16" height="16"></i> Снимки
+      </a>
+      <a href="/collections" class="nav-item {% if active=='collections' %}active{% endif %}">
+        <i data-lucide="folder" width="16" height="16"></i> Коллекции
+      </a>
+      <a href="/bulk" class="nav-item {% if active=='bulk' %}active{% endif %}">
+        <i data-lucide="upload" width="16" height="16"></i> Bulk import
+      </a>
+      {% if user and user.role == 'admin' %}
+      <a href="/audit" class="nav-item {% if active=='audit' %}active{% endif %}">
+        <i data-lucide="shield-check" width="16" height="16"></i> Аудит
+      </a>
+      {% endif %}
+    </nav>
+    <div class="sidebar-footer">
+      <span>{{ user.github_login if user else '' }}</span>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button data-theme-toggle aria-label="Switch theme" title="Тема"
+                style="color:var(--color-text-muted);padding:4px">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+          </svg>
+        </button>
+        <a href="/auth/logout" style="color:var(--color-text-muted);font-size:var(--text-xs)"
+           title="Выйти">
+          <i data-lucide="log-out" width="14" height="14"></i>
+        </a>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main content -->
+  <main class="main" id="main-content">
+    {% block content %}{% endblock %}
+  </main>
+</div>
+
+<script>
+(function(){
+  const t=document.querySelector('[data-theme-toggle]');
+  const r=document.documentElement;
+  let d=localStorage.getItem('theme')||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');
+  r.setAttribute('data-theme',d);
+  function updateIcon(){
+    if(!t)return;
+    t.innerHTML=d==='dark'
+      ?'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>'
+      :'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+  }
+  updateIcon();
+  t&&t.addEventListener('click',()=>{
+    d=d==='dark'?'light':'dark';
+    r.setAttribute('data-theme',d);
+    try{localStorage.setItem('theme',d);}catch(e){}
+    updateIcon();
+  });
+})();
+lucide && document.addEventListener('DOMContentLoaded',()=>lucide.createIcons());
+</script>
+</body>
+</html>

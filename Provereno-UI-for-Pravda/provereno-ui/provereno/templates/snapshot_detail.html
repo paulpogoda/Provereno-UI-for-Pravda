@@ -1,0 +1,363 @@
+{% extends "base.html" %}
+{% block title %}{{ snap.url | truncate(50) }}{% endblock %}
+{% block content %}
+<div x-data="{tab:'screenshot', tagInput:'', confirmDelete:false}">
+
+  <!-- Page header -->
+  <div class="page-header">
+    <div style="min-width:0;flex:1">
+      <a href="/snapshots" class="btn btn-ghost btn-sm"
+         style="margin-bottom:var(--space-3)">← Снимки</a>
+      <h1 class="page-title" style="font-size:var(--text-lg);word-break:break-all">
+        {{ snap.url | truncate(80) }}
+      </h1>
+      <div style="display:flex;align-items:center;gap:var(--space-3);
+                  flex-wrap:wrap;margin-top:var(--space-3)">
+        <!-- HTTP status -->
+        {% if snap.http_status %}
+        <span class="badge badge-{{ 'done' if snap.http_status < 400 else 'error' }}">
+          HTTP {{ snap.http_status }}
+        </span>
+        {% endif %}
+        <!-- Condition -->
+        <span class="badge badge-{{ 'done' if snap.condition_met else 'error' }}">
+          {% if snap.condition_met %}✓ Condition met{% else %}✗ Condition failed{% endif %}
+        </span>
+        <!-- URL availability -->
+        <span class="url-status">
+          <span class="status-dot status-dot-{{ snap.url_status }}"></span>
+          <span class="text-xs text-muted">{{ snap.url_status }}</span>
+        </span>
+        <!-- Public badge -->
+        {% if snap.is_public %}
+        <span class="badge" style="background:var(--color-primary-hl);color:var(--color-primary)">
+          <i data-lucide="globe" width="11" height="11"></i> Публичный
+        </span>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div style="display:flex;gap:var(--space-2);flex-wrap:wrap;flex-shrink:0">
+      <a href="/snapshots/{{ snap.id }}/export" class="btn btn-primary btn-sm">
+        <i data-lucide="download" width="14" height="14"></i> Forensic ZIP
+      </a>
+      <a href="/snapshots/{{ snap.id }}/mhtml" class="btn btn-secondary btn-sm">
+        <i data-lucide="file-archive" width="14" height="14"></i> MHTML
+      </a>
+      <form action="/snapshots/{{ snap.id }}/toggle-public" method="post">
+        <button type="submit" class="btn btn-ghost btn-sm" title="Переключить публичный доступ">
+          <i data-lucide="{{ 'eye-off' if snap.is_public else 'eye' }}" width="14" height="14"></i>
+          {{ 'Скрыть' if snap.is_public else 'Опубликовать' }}
+        </button>
+      </form>
+      <button @click="confirmDelete=true" class="btn btn-ghost btn-sm"
+              style="color:var(--color-error)">
+        <i data-lucide="trash-2" width="14" height="14"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- Public link -->
+  {% if snap.is_public %}
+  <div style="background:var(--color-primary-hl);border-radius:var(--radius-md);
+              padding:var(--space-3) var(--space-5);margin-bottom:var(--space-6);
+              display:flex;align-items:center;gap:var(--space-4);
+              font-size:var(--text-sm)">
+    <i data-lucide="link" width="14" height="14" style="color:var(--color-primary);flex-shrink:0"></i>
+    <span>Публичная ссылка:</span>
+    <a href="/public/evidence/{{ snap.id }}" target="_blank" rel="noopener"
+       style="font-family:'Courier New',monospace;font-size:var(--text-xs);
+              word-break:break-all">
+      /public/evidence/{{ snap.id }}
+    </a>
+    <button onclick="navigator.clipboard.writeText(window.location.origin+'/public/evidence/{{ snap.id }}')"
+            class="btn btn-ghost btn-sm" title="Скопировать">
+      <i data-lucide="copy" width="12" height="12"></i>
+    </button>
+  </div>
+  {% endif %}
+
+  <!-- Delete confirmation modal -->
+  <template x-if="confirmDelete">
+    <div style="position:fixed;inset:0;background:oklch(0.1 0 0/0.5);
+                display:flex;align-items:center;justify-content:center;z-index:100">
+      <div class="card" style="max-width:400px;width:100%;margin:var(--space-6)">
+        <h2 style="font-size:var(--text-base);font-weight:600;margin-bottom:var(--space-4)">
+          Удалить снимок?
+        </h2>
+        <p class="text-sm text-muted" style="margin-bottom:var(--space-6)">
+          Файлы MHTML и скриншот будут удалены безвозвратно.
+          Это действие нельзя отменить.
+        </p>
+        <div style="display:flex;gap:var(--space-3);justify-content:flex-end">
+          <button class="btn btn-ghost" @click="confirmDelete=false">Отмена</button>
+          <form action="/snapshots/{{ snap.id }}/delete" method="post">
+            <button type="submit" class="btn btn-danger">Удалить</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <!-- Main grid -->
+  <div style="display:grid;grid-template-columns:1fr 340px;gap:var(--space-6);
+              align-items:start">
+
+    <!-- LEFT: screenshot / lifecycle / integrity tabs -->
+    <div>
+      <!-- Tab bar -->
+      <div style="display:flex;gap:0;border-bottom:1px solid var(--color-border);
+                  margin-bottom:var(--space-5)">
+        {% for t, label in [('screenshot','Скриншот'),('lifecycle','Lifecycle'),('integrity','Целостность')] %}
+        <button @click="tab='{{ t }}'"
+                :class="tab==='{{ t }}' ? 'tab-active' : 'tab'"
+                style="padding:var(--space-3) var(--space-5);font-size:var(--text-sm);
+                       font-weight:500;border:none;background:none;cursor:pointer;
+                       border-bottom:2px solid transparent;margin-bottom:-1px"
+                :style="tab==='{{ t }}'
+                  ? 'color:var(--color-primary);border-bottom-color:var(--color-primary)'
+                  : 'color:var(--color-text-muted)'">
+          {{ label }}
+        </button>
+        {% endfor %}
+      </div>
+
+      <!-- Screenshot tab -->
+      <div x-show="tab==='screenshot'">
+        {% if snap.screenshot_path %}
+        <div class="screenshot-wrap">
+          <img src="/snapshots/{{ snap.id }}/screenshot" alt="Screenshot of {{ snap.url }}"
+               loading="lazy" width="1280" height="900"
+               style="width:100%;height:auto">
+        </div>
+        <div class="text-xs text-faint" style="margin-top:var(--space-3);text-align:center">
+          Полная страница &bull; Playwright Chromium 1280px
+        </div>
+        {% else %}
+        <div class="empty-state" style="padding:var(--space-10) 0">
+          <div class="empty-state-icon">
+            <i data-lucide="image-off" width="40" height="40"></i>
+          </div>
+          <h3>Скриншот недоступен</h3>
+          <p>Файл не был сохранён или был удалён.</p>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Lifecycle tab -->
+      <div x-show="tab==='lifecycle'" x-cloak>
+        {% if snap.lifecycle_events %}
+        <div class="card" style="padding:var(--space-5)">
+          <div style="font-family:'Courier New',monospace;font-size:11px;
+                      color:var(--color-text-muted);line-height:2">
+            {% for e in snap.lifecycle_events %}
+            <div>{{ e }}</div>
+            {% endfor %}
+          </div>
+        </div>
+        {% else %}
+        <div class="empty-state" style="padding:var(--space-10) 0">
+          <div class="empty-state-icon"><i data-lucide="activity" width="40" height="40"></i></div>
+          <h3>Нет данных</h3>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Integrity tab -->
+      <div x-show="tab==='integrity'" x-cloak>
+        <div class="card">
+          <h2 class="card-title" style="margin-bottom:var(--space-5)">SHA-256 хэши файлов</h2>
+          <table>
+            <tbody>
+              <tr>
+                <td class="text-sm text-muted" style="width:120px;padding:var(--space-3) 0">
+                  MHTML
+                </td>
+                <td style="padding:var(--space-3) 0">
+                  {% if snap.mhtml_sha256 %}
+                  <span class="hash">{{ snap.mhtml_sha256 }}</span>
+                  {% else %}
+                  <span class="text-faint text-xs">—</span>
+                  {% endif %}
+                </td>
+              </tr>
+              <tr>
+                <td class="text-sm text-muted" style="padding:var(--space-3) 0">Snapshot ID</td>
+                <td style="padding:var(--space-3) 0">
+                  <span class="hash">{{ snap.id }}</span>
+                </td>
+              </tr>
+              <tr>
+                <td class="text-sm text-muted" style="padding:var(--space-3) 0">Дата захвата</td>
+                <td class="text-sm" style="padding:var(--space-3) 0">
+                  {{ snap.captured_at | datetimefmt }}
+                </td>
+              </tr>
+              <tr>
+                <td class="text-sm text-muted" style="padding:var(--space-3) 0">Автор</td>
+                <td class="text-sm" style="padding:var(--space-3) 0">
+                  {{ snap.creator or '—' }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          {% if snap.headers %}
+          <div style="margin-top:var(--space-6);padding-top:var(--space-5);
+                      border-top:1px solid var(--color-divider)">
+            <div class="text-xs text-muted" style="margin-bottom:var(--space-3);
+                 font-weight:600;text-transform:uppercase;letter-spacing:.04em">
+              HTTP Headers
+            </div>
+            <div style="font-family:'Courier New',monospace;font-size:10px;
+                        color:var(--color-text-muted);line-height:1.8">
+              {% for k, v in snap.headers.items() %}
+              {% if not loop.index > 25 %}
+              <div><span style="color:var(--color-text)">{{ k }}</span>: {{ v }}</div>
+              {% endif %}
+              {% endfor %}
+            </div>
+          </div>
+          {% endif %}
+
+          <div style="margin-top:var(--space-6)">
+            <a href="/snapshots/{{ snap.id }}/export" class="btn btn-primary btn-sm">
+              <i data-lucide="download" width="14" height="14"></i>
+              Скачать Forensic ZIP
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: metadata sidebar -->
+    <div style="display:flex;flex-direction:column;gap:var(--space-4)">
+
+      <!-- Details card -->
+      <div class="card">
+        <h2 class="card-title" style="margin-bottom:var(--space-4)">Детали</h2>
+        <div style="display:flex;flex-direction:column;gap:var(--space-4)">
+          <div>
+            <div class="text-xs text-faint">URL</div>
+            <div class="text-sm" style="word-break:break-all;margin-top:2px">
+              <a href="{{ snap.url }}" target="_blank" rel="noopener">{{ snap.url }}</a>
+            </div>
+          </div>
+          {% if snap.final_url and snap.final_url != snap.url %}
+          <div>
+            <div class="text-xs text-faint">Финальный URL (после редиректов)</div>
+            <div class="text-sm" style="word-break:break-all;margin-top:2px">
+              <a href="{{ snap.final_url }}" target="_blank" rel="noopener">{{ snap.final_url }}</a>
+            </div>
+          </div>
+          {% endif %}
+          <div>
+            <div class="text-xs text-faint">Захвачен</div>
+            <div class="text-sm" style="margin-top:2px">{{ snap.captured_at | datetimefmt }}</div>
+          </div>
+          {% if snap.creator %}
+          <div>
+            <div class="text-xs text-faint">Автор</div>
+            <div class="text-sm" style="margin-top:2px">
+              <a href="https://github.com/{{ snap.creator }}" target="_blank"
+                 rel="noopener">@{{ snap.creator }}</a>
+            </div>
+          </div>
+          {% endif %}
+          {% if snap.note %}
+          <div>
+            <div class="text-xs text-faint">Заметка</div>
+            <div class="text-sm" style="margin-top:2px">{{ snap.note }}</div>
+          </div>
+          {% endif %}
+          <div>
+            <div class="text-xs text-faint">Доступность оригинала</div>
+            <div style="display:flex;align-items:center;gap:6px;margin-top:4px">
+              <span class="status-dot status-dot-{{ snap.url_status }}"></span>
+              <span class="text-sm">{{ snap.url_status }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tags card -->
+      <div class="card">
+        <h2 class="card-title" style="margin-bottom:var(--space-4)">Теги</h2>
+        {% if tags %}
+        <div style="display:flex;flex-wrap:wrap;gap:var(--space-2);margin-bottom:var(--space-4)">
+          {% for tag in tags %}
+          <div style="display:flex;align-items:center;gap:4px">
+            <a href="/snapshots?tag={{ tag }}" class="badge badge-queued"
+               style="text-decoration:none">{{ tag }}</a>
+            <form action="/snapshots/{{ snap.id }}/tags/{{ tag }}/remove" method="post">
+              <button type="submit"
+                      style="background:none;border:none;cursor:pointer;
+                             color:var(--color-text-faint);padding:0 2px;
+                             font-size:12px;line-height:1"
+                      title="Удалить тег">×</button>
+            </form>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Add tag form -->
+        <form action="/snapshots/{{ snap.id }}/tags" method="post"
+              style="display:flex;gap:var(--space-2)">
+          <input type="text" name="tag_name" class="input"
+                 placeholder="Новый тег..." maxlength="64"
+                 list="all-tags-list"
+                 style="flex:1;font-size:var(--text-xs)">
+          <datalist id="all-tags-list">
+            {% for t in all_tags %}
+            <option value="{{ t }}">
+            {% endfor %}
+          </datalist>
+          <button type="submit" class="btn btn-secondary btn-sm">+</button>
+        </form>
+      </div>
+
+      <!-- Quick export card -->
+      <div class="card">
+        <h2 class="card-title" style="margin-bottom:var(--space-4)">Экспорт</h2>
+        <div style="display:flex;flex-direction:column;gap:var(--space-3)">
+          <a href="/snapshots/{{ snap.id }}/export" class="btn btn-primary btn-sm"
+             style="justify-content:center">
+            <i data-lucide="download" width="14" height="14"></i>
+            Forensic ZIP
+          </a>
+          <a href="/snapshots/{{ snap.id }}/mhtml" class="btn btn-secondary btn-sm"
+             style="justify-content:center">
+            <i data-lucide="file-archive" width="14" height="14"></i>
+            Скачать MHTML
+          </a>
+          <a href="/snapshots/{{ snap.id }}/screenshot" class="btn btn-secondary btn-sm"
+             style="justify-content:center" download>
+            <i data-lucide="image" width="14" height="14"></i>
+            Скачать PNG
+          </a>
+        </div>
+
+        <!-- SHA-256 preview -->
+        {% if snap.mhtml_sha256 %}
+        <div style="margin-top:var(--space-5);padding-top:var(--space-4);
+                    border-top:1px solid var(--color-divider)">
+          <div class="text-xs text-faint" style="margin-bottom:4px">SHA-256 (MHTML)</div>
+          <div class="hash" style="font-size:9px">{{ snap.mhtml_sha256 }}</div>
+        </div>
+        {% endif %}
+      </div>
+
+    </div><!-- /right sidebar -->
+  </div><!-- /main grid -->
+
+</div><!-- /x-data -->
+
+<style>
+[x-cloak]{display:none!important}
+@media(max-width:900px){
+  [style*="grid-template-columns:1fr 340px"]{grid-template-columns:1fr!important}
+}
+</style>
+{% endblock %}

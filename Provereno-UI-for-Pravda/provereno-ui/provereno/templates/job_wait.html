@@ -1,0 +1,209 @@
+{% extends "base.html" %}
+{% block title %}Захват страницы{% endblock %}
+{% block content %}
+<div style="max-width:640px;margin:0 auto"
+     x-data="{
+       status: '{{ job.status }}',
+       message: 'Инициализация...',
+       progress: 10,
+       error: null,
+       done: false,
+       redirectUrl: null,
+       lifecycle: [],
+       init() {
+         if (this.status === 'done') {
+           window.location = '/snapshots/{{ job.snapshot_id }}';
+           return;
+         }
+         if (this.status === 'error') {
+           this.error = '{{ job.error_message | default(\'Unknown error\') }}';
+           this.progress = 100;
+           return;
+         }
+         this.startStream();
+       },
+       startStream() {
+         const es = new EventSource('/jobs/{{ job.id }}/stream');
+         es.addEventListener('connected', () => {
+           this.message = 'Соединение установлено...';
+           this.progress = 15;
+         });
+         es.addEventListener('progress', e => {
+           const d = JSON.parse(e.data);
+           this.status = d.status;
+           this.message = d.message || 'Загрузка страницы...';
+           this.progress = 40;
+           if (d.lifecycle) this.lifecycle = d.lifecycle;
+         });
+         es.addEventListener('done', e => {
+           const d = JSON.parse(e.data);
+           this.status = 'done';
+           this.message = 'Снимок создан!';
+           this.progress = 100;
+           this.done = true;
+           es.close();
+           setTimeout(() => { window.location = d.redirect || '/snapshots/' + d.snapshot_id; }, 700);
+         });
+         es.addEventListener('error', e => {
+           try {
+             const d = JSON.parse(e.data);
+             this.error = d.message || 'Ошибка захвата';
+           } catch(_) {
+             this.error = 'Соединение прервано';
+           }
+           this.status = 'error';
+           this.progress = 100;
+           es.close();
+         });
+         es.onerror = () => {
+           // poll fallback
+           setTimeout(() => this.pollStatus(), 3000);
+           es.close();
+         };
+       },
+       async pollStatus() {
+         try {
+           const r = await fetch('/jobs/{{ job.id }}/status');
+           const d = await r.json();
+           this.status = d.status;
+           if (d.status === 'done') {
+             this.progress = 100; this.done = true;
+             window.location = '/snapshots/' + d.snapshot_id;
+           } else if (d.status === 'error') {
+             this.error = d.error || 'Ошибка захвата';
+             this.progress = 100;
+           } else {
+             this.progress = 55;
+             setTimeout(() => this.pollStatus(), 2000);
+           }
+         } catch(_) {
+           setTimeout(() => this.pollStatus(), 3000);
+         }
+       }
+     }">
+
+  <!-- Header -->
+  <div class="page-header" style="margin-bottom:var(--space-6)">
+    <div>
+      <h1 class="page-title">Захват страницы</h1>
+      <p class="page-subtitle text-sm" style="margin-top:4px;word-break:break-all">
+        {{ job.url | truncate(80) }}
+      </p>
+    </div>
+  </div>
+
+  <!-- Status card -->
+  <div class="card" style="margin-bottom:var(--space-5)">
+
+    <!-- Progress bar -->
+    <div class="progress-bar" style="margin-bottom:var(--space-5)">
+      <div class="progress-fill" :style="'width:' + progress + '%'"
+           :style="error ? 'background:var(--color-error)' : ''"></div>
+    </div>
+
+    <!-- Icon + status -->
+    <div style="display:flex;align-items:center;gap:var(--space-5);margin-bottom:var(--space-5)">
+      <!-- Spinner / done / error icon -->
+      <div style="width:52px;height:52px;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+                  border-radius:50%;background:var(--color-surface-offset)">
+        <!-- Spinner -->
+        <template x-if="!done && !error">
+          <svg width="28" height="28" viewBox="0 0 28 28" fill="none"
+               style="animation:spin 1s linear infinite">
+            <circle cx="14" cy="14" r="11" stroke="var(--color-divider)" stroke-width="2.5"/>
+            <path d="M14 3a11 11 0 0 1 11 11" stroke="var(--color-primary)"
+                  stroke-width="2.5" stroke-linecap="round"/>
+          </svg>
+        </template>
+        <!-- Done -->
+        <template x-if="done && !error">
+          <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+            <circle cx="14" cy="14" r="11" fill="var(--color-success-hl)"/>
+            <path d="M9 14l3.5 3.5L19 10" stroke="var(--color-success)"
+                  stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </template>
+        <!-- Error -->
+        <template x-if="error">
+          <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+            <circle cx="14" cy="14" r="11" fill="var(--color-error-hl)"/>
+            <path d="M10 10l8 8M18 10l-8 8" stroke="var(--color-error)"
+                  stroke-width="2.2" stroke-linecap="round"/>
+          </svg>
+        </template>
+      </div>
+
+      <div style="min-width:0">
+        <div style="font-weight:600;font-size:var(--text-base)" x-text="
+          error ? 'Ошибка захвата' :
+          done  ? 'Снимок создан — перенаправление...' :
+          message
+        "></div>
+        <div class="text-xs text-muted" style="margin-top:4px">
+          Задача <code style="font-size:var(--text-xs)">{{ job.id[:8] }}</code>
+          &bull; <span x-text="status"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Error details -->
+    <template x-if="error">
+      <div style="background:var(--color-error-hl);border-radius:var(--radius-md);
+                  padding:var(--space-4);margin-bottom:var(--space-4)">
+        <div style="font-size:var(--text-sm);color:var(--color-error);font-weight:500">
+          Детали ошибки
+        </div>
+        <div class="text-sm text-muted" style="margin-top:4px" x-text="error"></div>
+      </div>
+    </template>
+
+    <!-- Meta -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-4);
+                padding-top:var(--space-4);border-top:1px solid var(--color-divider)">
+      <div>
+        <div class="text-xs text-faint">URL</div>
+        <div class="text-sm truncate" style="max-width:260px" title="{{ job.url }}">
+          {{ job.url | truncate(60) }}
+        </div>
+      </div>
+      <div>
+        <div class="text-xs text-faint">Условие</div>
+        <div class="text-sm">
+          {{ job.condition_type }}{% if job.condition %}: {{ job.condition | truncate(30) }}{% endif %}
+        </div>
+      </div>
+      {% if job.note %}
+      <div style="grid-column:1/-1">
+        <div class="text-xs text-faint">Заметка</div>
+        <div class="text-sm">{{ job.note }}</div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Lifecycle events (populated via SSE) -->
+  <template x-if="lifecycle.length > 0">
+    <div class="card">
+      <div class="card-header" style="margin-bottom:var(--space-4)">
+        <h2 class="card-title text-sm">Lifecycle events</h2>
+      </div>
+      <div style="font-family:'Courier New',monospace;font-size:11px;
+                  color:var(--color-text-muted);line-height:1.8">
+        <template x-for="e in lifecycle" :key="e">
+          <div x-text="e"></div>
+        </template>
+      </div>
+    </div>
+  </template>
+
+  <!-- Actions -->
+  <div style="display:flex;gap:var(--space-3);margin-top:var(--space-5)">
+    <a href="/" class="btn btn-ghost btn-sm">← Дашборд</a>
+    <a href="/snapshots" class="btn btn-ghost btn-sm">Все снимки</a>
+  </div>
+</div>
+
+<style>
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+{% endblock %}

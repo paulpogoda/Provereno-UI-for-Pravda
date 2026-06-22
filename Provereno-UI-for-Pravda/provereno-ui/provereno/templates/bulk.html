@@ -1,0 +1,304 @@
+{% extends "base.html" %}
+{% block title %}Bulk Import{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Bulk Import</h1>
+    <p class="page-subtitle">Захват множества URL из CSV-файла (до 500 строк)</p>
+  </div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 320px;gap:var(--space-6);
+            align-items:start">
+
+  <!-- Main upload form -->
+  <div class="card" x-data="{
+    mode: 'file',
+    fileReady: false,
+    fileName: '',
+    previewRows: [],
+    previewError: null,
+    totalRows: 0,
+    parseCSV(text) {
+      const lines = text.trim().split(/\r?\n/).filter(l => l.trim());
+      const rows = [];
+      for (let i = 0; i < Math.min(lines.length, 500); i++) {
+        const url = lines[i].split(',')[0].trim().replace(/^['\"]+|['\"]+$/g, '');
+        if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
+          rows.push(url);
+        }
+      }
+      return rows;
+    },
+    handleFile(e) {
+      const f = e.target.files[0];
+      if (!f) return;
+      if (!f.name.endsWith('.csv') && !f.name.endsWith('.txt')) {
+        this.previewError = 'Поддерживаются только .csv и .txt файлы';
+        return;
+      }
+      this.fileName = f.name;
+      const reader = new FileReader();
+      reader.onload = ev => {
+        const rows = this.parseCSV(ev.target.result);
+        if (rows.length === 0) {
+          this.previewError = 'Не найдено валидных URL (http/https) в первой колонке';
+          this.previewRows = [];
+          this.fileReady = false;
+        } else {
+          this.previewError = null;
+          this.previewRows = rows.slice(0, 8);
+          this.totalRows = rows.length;
+          this.fileReady = true;
+        }
+      };
+      reader.readAsText(f);
+    }
+  }">
+
+    <!-- Tab toggle: file / paste -->
+    <div style="display:flex;gap:0;border-bottom:1px solid var(--color-border);
+                margin:-var(--space-6) -var(--space-6) var(--space-6);
+                padding:0 var(--space-6)">
+      {% for m, label, icon in [('file','Загрузить CSV','upload'),('paste','Вставить URL','list')] %}
+      <button @click="mode='{{ m }}';previewRows=[];previewError=null;fileReady=false"
+              :style="mode==='{{ m }}'
+                ? 'color:var(--color-primary);border-bottom:2px solid var(--color-primary)'
+                : 'color:var(--color-text-muted)'"
+              style="padding:var(--space-4) var(--space-5);font-size:var(--text-sm);
+                     font-weight:500;border:none;background:none;cursor:pointer;
+                     display:flex;align-items:center;gap:6px;margin-bottom:-1px">
+        <i data-lucide="{{ icon }}" width="14" height="14"></i>{{ label }}
+      </button>
+      {% endfor %}
+    </div>
+
+    <form action="/bulk/submit" method="post" enctype="multipart/form-data">
+
+      <!-- Mode: file upload -->
+      <div x-show="mode==='file'" style="margin-bottom:var(--space-5)">
+        <label class="form-label" style="margin-bottom:var(--space-3)">
+          CSV-файл (одна колонка с URL, без заголовка)
+        </label>
+        <label style="display:block;border:2px dashed var(--color-border);
+                      border-radius:var(--radius-lg);padding:var(--space-10);
+                      text-align:center;cursor:pointer;transition:all var(--transition)"
+               :style="fileReady
+                  ? 'border-color:var(--color-primary);background:var(--color-primary-hl)'
+                  : ''">
+          <input type="file" name="csv_file" accept=".csv,.txt"
+                 @change="handleFile($event)"
+                 style="position:absolute;opacity:0;pointer-events:none">
+          <template x-if="!fileReady">
+            <div>
+              <i data-lucide="upload-cloud" width="36" height="36"
+                 style="margin:0 auto var(--space-4);color:var(--color-text-faint)"></i>
+              <div style="font-size:var(--text-sm);font-weight:500">
+                Перетащите CSV или нажмите для выбора
+              </div>
+              <div class="text-xs text-faint" style="margin-top:4px">
+                До 500 строк, UTF-8, первая колонка — URL
+              </div>
+            </div>
+          </template>
+          <template x-if="fileReady">
+            <div>
+              <i data-lucide="file-check" width="36" height="36"
+                 style="margin:0 auto var(--space-3);color:var(--color-primary)"></i>
+              <div style="font-size:var(--text-sm);font-weight:600;color:var(--color-primary)"
+                   x-text="fileName"></div>
+              <div class="text-xs text-muted" style="margin-top:4px"
+                   x-text="totalRows + ' валидных URL'"></div>
+            </div>
+          </template>
+        </label>
+
+        <!-- Parse error -->
+        <template x-if="previewError">
+          <div style="margin-top:var(--space-3);background:var(--color-error-hl);
+                      padding:var(--space-3) var(--space-4);border-radius:var(--radius-md);
+                      font-size:var(--text-sm);color:var(--color-error)" x-text="previewError">
+          </div>
+        </template>
+
+        <!-- Preview -->
+        <template x-if="previewRows.length > 0">
+          <div style="margin-top:var(--space-4)">
+            <div class="text-xs text-muted" style="margin-bottom:var(--space-2);
+                 font-weight:600;text-transform:uppercase;letter-spacing:.04em">
+              Предпросмотр (первые 8 строк)
+            </div>
+            <div style="background:var(--color-surface-offset);border-radius:var(--radius-md);
+                        padding:var(--space-3) var(--space-4)">
+              <template x-for="(url, i) in previewRows" :key="i">
+                <div style="font-family:'Courier New',monospace;font-size:11px;
+                            color:var(--color-text-muted);padding:2px 0;
+                            overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+                     x-text="url"></div>
+              </template>
+              <template x-if="totalRows > 8">
+                <div class="text-xs text-faint" style="padding-top:4px"
+                     x-text="'... ещё ' + (totalRows - 8) + ' URL'"></div>
+              </template>
+            </div>
+          </div>
+        </template>
+      </div>
+
+      <!-- Mode: paste URLs -->
+      <div x-show="mode==='paste'" x-cloak style="margin-bottom:var(--space-5)">
+        <label class="form-label" style="margin-bottom:var(--space-3)">
+          Вставьте URL — по одному на строку (до 500)
+        </label>
+        <textarea name="paste_urls" class="textarea" rows="10"
+                  placeholder="https://example.com/page1&#10;https://example.com/page2&#10;..."
+                  @input="
+                    const lines = $el.value.trim().split(/\n/).filter(l=>l.startsWith('http'));
+                    totalRows = lines.length;
+                    previewRows = lines.slice(0,8);
+                    fileReady = lines.length > 0;
+                  "></textarea>
+        <div class="text-xs text-muted" style="margin-top:4px">
+          Найдено валидных URL: <span x-text="totalRows"></span>
+        </div>
+      </div>
+
+      <!-- Options -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-4);
+                  margin-bottom:var(--space-5)">
+        <div class="form-group">
+          <label class="form-label">Условие захвата</label>
+          <select name="condition_type" class="select">
+            <option value="load">Page load</option>
+            <option value="networkidle">Network idle</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Теги для всех URL</label>
+          <input type="text" name="tags" class="input" placeholder="тег1, тег2">
+        </div>
+      </div>
+
+      <!-- Submit -->
+      <div style="display:flex;gap:var(--space-3);align-items:center">
+        <button type="submit" class="btn btn-primary"
+                :disabled="!fileReady"
+                :style="!fileReady ? 'opacity:.4;pointer-events:none' : ''">
+          <i data-lucide="play" width="16" height="16"></i>
+          Запустить захват
+        </button>
+        <span class="text-xs text-muted" x-show="fileReady"
+              x-text="'Будет создано ' + totalRows + ' задач'"></span>
+      </div>
+    </form>
+  </div>
+
+  <!-- Right: format guide -->
+  <div style="display:flex;flex-direction:column;gap:var(--space-4)">
+    <div class="card">
+      <h2 class="card-title" style="margin-bottom:var(--space-4)">Формат CSV</h2>
+      <p class="text-sm text-muted" style="margin-bottom:var(--space-4)">
+        Один URL в строке, первая колонка. Заголовок необязателен.
+      </p>
+      <div style="background:var(--color-surface-offset);border-radius:var(--radius-md);
+                  padding:var(--space-4)">
+        <div style="font-family:'Courier New',monospace;font-size:11px;
+                    color:var(--color-text-muted);line-height:1.8">
+          <div style="color:var(--color-text-faint)">url,заметка</div>
+          <div>https://site.ru/article1,Статья 1</div>
+          <div>https://site.ru/article2,Статья 2</div>
+          <div>https://t.me/channel/123</div>
+        </div>
+      </div>
+      <div class="text-xs text-faint" style="margin-top:var(--space-3)">
+        Вторая колонка (заметка) — необязательна
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 class="card-title" style="margin-bottom:var(--space-4)">Ограничения</h2>
+      <ul style="list-style:none;font-size:var(--text-sm);
+                 color:var(--color-text-muted);display:flex;flex-direction:column;
+                 gap:var(--space-3)">
+        <li style="display:flex;gap:8px">
+          <i data-lucide="layers" width="14" height="14" style="flex-shrink:0;margin-top:2px;
+             color:var(--color-primary)"></i>
+          До 500 URL за один импорт
+        </li>
+        <li style="display:flex;gap:8px">
+          <i data-lucide="cpu" width="14" height="14" style="flex-shrink:0;margin-top:2px;
+             color:var(--color-primary)"></i>
+          Параллельно 3 браузера
+        </li>
+        <li style="display:flex;gap:8px">
+          <i data-lucide="clock" width="14" height="14" style="flex-shrink:0;margin-top:2px;
+             color:var(--color-primary)"></i>
+          ~8 с на URL → 500 URL ≈ 25 мин
+        </li>
+        <li style="display:flex;gap:8px">
+          <i data-lucide="file-text" width="14" height="14" style="flex-shrink:0;margin-top:2px;
+             color:var(--color-primary)"></i>
+          Кодировка: UTF-8
+        </li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- Recent batches -->
+{% if batches %}
+<div class="card" style="margin-top:var(--space-8);padding:0">
+  <div class="card-header" style="padding:var(--space-5) var(--space-6)">
+    <h2 class="card-title">Последние импорты</h2>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th style="padding-left:var(--space-6)">Batch ID</th>
+          <th>URL</th>
+          <th>Готово</th>
+          <th>Ошибок</th>
+          <th>Статус</th>
+          <th>Дата</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for b in batches %}
+        <tr>
+          <td style="padding-left:var(--space-6)">
+            <code style="font-size:var(--text-xs)">{{ b.batch_id[:8] }}</code>
+          </td>
+          <td class="text-sm">{{ b.total }}</td>
+          <td>
+            <span style="color:var(--color-success);font-weight:600">{{ b.done }}</span>
+          </td>
+          <td>
+            <span style="color:{% if b.errors > 0 %}var(--color-error){% else %}var(--color-text-faint){% endif %};font-weight:600">
+              {{ b.errors }}
+            </span>
+          </td>
+          <td>
+            <div class="progress-bar" style="width:120px">
+              <div class="progress-fill"
+                   style="width:{{ (b.done / b.total * 100) | int if b.total else 0 }}%"></div>
+            </div>
+          </td>
+          <td class="text-sm text-muted">{{ b.created_at | datetimeshort }}</td>
+          <td style="padding-right:var(--space-4)">
+            <a href="/bulk/{{ b.batch_id }}" class="btn btn-ghost btn-sm">
+              Детали →
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<style>[x-cloak]{display:none!important}</style>
+{% endblock %}
