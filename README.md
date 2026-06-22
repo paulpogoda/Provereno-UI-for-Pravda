@@ -25,7 +25,7 @@
 
 ## Overview
 
-`provereno-ui-for-pravda` is an open-source, self-hostable web application that wraps [opensanctions/pravda](https://github.com/opensanctions/pravda) — a headless web archiving engine built on Playwright — with a team-facing UI and a public evidence viewer.
+*provereno-ui-for-pravda* is an open-source, self-hostable web application that wraps [opensanctions/pravda](https://github.com/opensanctions/pravda) — a headless web archiving engine built on Playwright — with a team-facing UI and a public evidence viewer.
 
 Built for investigative journalists and fact-checking teams who need to:
 
