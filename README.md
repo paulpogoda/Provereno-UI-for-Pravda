@@ -21,6 +21,11 @@
 </div>
 
 ---
+<img src="https://github.com/user-attachments/assets/6db1309b-53c4-4f6c-8a8f-3886bd838310" />
+
+[HTML-Mockup is here](https://provereno-media.github.io/Provereno-UI-for-Pravda/)
+
+---
 
 ## Overview
 
@@ -54,8 +59,6 @@ Deploys in a single `docker compose up` on any Linux VPS with 2 GB RAM. No Googl
 | 🌙 **Dark mode** | System preference + manual toggle; full WCAG AA contrast |
 | 🐳 **One-command deploy** | Docker Compose with PostgreSQL + Nginx + Playwright included |
 
-<img src="https://github.com/user-attachments/assets/6db1309b-53c4-4f6c-8a8f-3886bd838310" />
-[HTML-Mockup is here](https://provereno-media.github.io/Provereno-UI-for-Pravda/)
 ---
 
 ## Quick Start
