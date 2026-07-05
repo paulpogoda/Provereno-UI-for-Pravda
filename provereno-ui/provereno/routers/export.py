@@ -6,6 +6,7 @@ from fastapi.responses import Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from provereno.audit import log_event
 from provereno.auth import require_auth
 from provereno.database import get_db
 from provereno.forensic import build_forensic_zip
@@ -62,6 +63,10 @@ async def export_snapshot(
         tags=tags,
         note=snap.note,
     )
+
+    await log_event(session, "snapshot.exported", user_login=user.github_login,
+                    resource_type="snapshot", resource_id=snapshot_id)
+    await session.commit()
 
     filename = f"evidence-{snapshot_id[:8]}.zip"
     return Response(

@@ -6,6 +6,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from provereno.audit import log_event
 from provereno.auth import require_auth
 from provereno.database import get_db
 from provereno.models import Job
@@ -75,7 +76,8 @@ async def bulk_page(request: Request, user=Depends(require_auth)):
 
 
 @router.post("/bulk")
-async def bulk_submit(request: Request, user=Depends(require_auth)):
+async def bulk_submit(request: Request, session: AsyncSession = Depends(get_db),
+                     user=Depends(require_auth)):
     form = await request.form()
     upload = form.get("csvfile")
     raw_text = form.get("csv_text") or ""
@@ -112,6 +114,11 @@ async def bulk_submit(request: Request, user=Depends(require_auth)):
             batch_id=batch_id,
         )
         job_ids.append(jid)
+
+    await log_event(session, "bulk.started", user_login=user.github_login,
+                    resource_type="batch", resource_id=batch_id,
+                    metadata={"url_count": len(job_ids)})
+    await session.commit()
 
     return RedirectResponse(f"/bulk/{batch_id}", status_code=303)
 

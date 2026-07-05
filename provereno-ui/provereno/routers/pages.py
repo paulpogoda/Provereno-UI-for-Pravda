@@ -46,17 +46,18 @@ async def audit_log(request: Request, page: int = 1,
 @router.get("/audit/export-csv")
 async def audit_csv(session: AsyncSession = Depends(get_db),
                     user=Depends(require_admin)):
-    import csv, io
+    import csv, io, json
     from fastapi.responses import StreamingResponse
     rows = (await session.execute(
         select(AuditLog).order_by(desc(AuditLog.created_at)).limit(10000)
     )).scalars().all()
     buf = io.StringIO()
     writer = csv.writer(buf)
-    writer.writerow(["created_at", "event_type", "actor", "object_id", "ip", "detail"])
+    writer.writerow(["created_at", "event", "actor", "resource_type", "resource_id", "ip", "metadata"])
     for r in rows:
-        writer.writerow([r.created_at, r.event_type, r.actor or "",
-                         r.object_id or "", r.ip or "", r.detail or ""])
+        writer.writerow([r.created_at, r.event, r.user_github_login or "",
+                         r.resource_type or "", r.resource_id or "", r.ip or "",
+                         json.dumps(r.metadata_, ensure_ascii=False) if r.metadata_ else ""])
     buf.seek(0)
     return StreamingResponse(
         iter([buf.getvalue()]),

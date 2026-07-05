@@ -7,6 +7,7 @@ from typing import AsyncGenerator, Optional
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from provereno.audit import log_event
 from provereno.capture import capture_service
 from provereno.config import settings
 from provereno.database import AsyncSessionLocal
@@ -144,6 +145,9 @@ async def _run_job(job_id: str) -> None:
             job_row.snapshot_id = snap_id
             job_row.finished_at = _utcnow()
 
+        await log_event(session, "snapshot.created", user_login=job.created_by,
+                        resource_type="snapshot", resource_id=snap_id,
+                        metadata={"url": job.url, "http_status": result.http_status})
         await session.commit()
 
     _publish(job_id, "done", {
