@@ -6,6 +6,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from provereno.audit import log_event
 from provereno.auth import require_auth
 from provereno.database import get_db
 from provereno.models import Collection, CollectionSnapshot, Snapshot
@@ -38,7 +39,10 @@ async def create_collection(request: Request, session: AsyncSession = Depends(ge
         return RedirectResponse("/collections", status_code=303)
     col = Collection(id=str(uuid.uuid4()), name=name,
                      description=description or None, created_by=user.github_login)
-    session.add(col); await session.commit()
+    session.add(col)
+    await log_event(session, "collection.created", user_login=user.github_login,
+                    resource_type="collection", resource_id=col.id, metadata={"name": name})
+    await session.commit()
     return RedirectResponse(f"/collections/{col.id}", status_code=303)
 
 
@@ -103,5 +107,10 @@ async def remove_from_collection(collection_id: str, snapshot_id: str,
 async def delete_collection(collection_id: str, session: AsyncSession = Depends(get_db),
                             user=Depends(require_auth)):
     col = await session.get(Collection, collection_id)
-    if col: await session.delete(col); await session.commit()
+    if col:
+        await log_event(session, "collection.deleted", user_login=user.github_login,
+                        resource_type="collection", resource_id=collection_id,
+                        metadata={"name": col.name})
+        await session.delete(col)
+        await session.commit()
     return RedirectResponse("/collections", status_code=303)

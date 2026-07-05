@@ -6,6 +6,7 @@ from sqlalchemy import select, func, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 import pathlib
 
+from provereno.audit import log_event
 from provereno.auth import require_auth
 from provereno.database import get_db
 from provereno.models import Snapshot, SnapshotTag, Tag
@@ -106,6 +107,9 @@ async def add_tag(snapshot_id: str, request: Request,
         st = await session.get(SnapshotTag, (snapshot_id, tag_name))
         if not st:
             session.add(SnapshotTag(snapshot_id=snapshot_id, tag_name=tag_name))
+            await log_event(session, "tag.added", user_login=user.github_login,
+                            resource_type="snapshot", resource_id=snapshot_id,
+                            metadata={"tag": tag_name})
         await session.commit()
     return RedirectResponse(f"/snapshots/{snapshot_id}", status_code=303)
 
@@ -119,6 +123,9 @@ async def remove_tag(snapshot_id: str, tag_name: str,
             SnapshotTag.tag_name == tag_name,
         )
     )
+    await log_event(session, "tag.removed", user_login=user.github_login,
+                    resource_type="snapshot", resource_id=snapshot_id,
+                    metadata={"tag": tag_name})
     await session.commit()
     return RedirectResponse(f"/snapshots/{snapshot_id}", status_code=303)
 
@@ -130,6 +137,8 @@ async def toggle_public(snapshot_id: str,
     snap = await session.get(Snapshot, snapshot_id)
     if not snap: raise HTTPException(404)
     snap.is_public = not snap.is_public
+    await log_event(session, "snapshot.published" if snap.is_public else "snapshot.unpublished",
+                    user_login=user.github_login, resource_type="snapshot", resource_id=snapshot_id)
     await session.commit()
     return RedirectResponse(f"/snapshots/{snapshot_id}", status_code=303)
 
@@ -144,6 +153,8 @@ async def delete_snapshot(snapshot_id: str,
         if path:
             try: pathlib.Path(path).unlink(missing_ok=True)
             except Exception: pass
+    await log_event(session, "snapshot.deleted", user_login=user.github_login,
+                    resource_type="snapshot", resource_id=snapshot_id, metadata={"url": snap.url})
     await session.delete(snap)
     await session.commit()
     return RedirectResponse("/snapshots", status_code=303)

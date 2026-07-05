@@ -8,7 +8,7 @@
     <p class="page-subtitle">{{ total }} событий · только чтение</p>
   </div>
   <div style="display:flex;gap:var(--space-3)">
-    <a href="/audit?format=csv" class="btn btn-secondary btn-sm">
+    <a href="/audit/export-csv" class="btn btn-secondary btn-sm">
       <i data-lucide="download" width="14" height="14"></i> CSV
     </a>
   </div>
@@ -44,7 +44,7 @@
         <tr>
           <td style="padding-left:var(--space-6)">
             <div style="display:flex;align-items:center;gap:var(--space-2)">
-              {% set ev = log.event_type %}
+              {% set ev = log.event %}
               {% if ev == 'snapshot.created' %}
                 <i data-lucide="camera" width="13" height="13"
                    style="color:var(--color-primary);flex-shrink:0"></i>
@@ -76,35 +76,35 @@
                 <i data-lucide="activity" width="13" height="13"
                    style="color:var(--color-text-faint);flex-shrink:0"></i>
               {% endif %}
-              <span class="text-sm" style="font-weight:500">{{ log.event_type }}</span>
+              <span class="text-sm" style="font-weight:500">{{ log.event }}</span>
             </div>
-            {% if log.detail %}
+            {% if log.metadata_ %}
             <div class="text-xs text-faint" style="margin-top:2px;
                  max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
-                 title="{{ log.detail }}">
-              {{ log.detail | truncate(60) }}
+                 title="{{ log.metadata_ | tojson }}">
+              {{ log.metadata_ | tojson | truncate(60) }}
             </div>
             {% endif %}
           </td>
           <td>
-            {% if log.actor %}
-            <a href="https://github.com/{{ log.actor }}" target="_blank"
-               rel="noopener" class="text-sm">@{{ log.actor }}</a>
+            {% if log.user_github_login %}
+            <a href="https://github.com/{{ log.user_github_login }}" target="_blank"
+               rel="noopener" class="text-sm">@{{ log.user_github_login }}</a>
             {% else %}
             <span class="text-faint text-xs">system</span>
             {% endif %}
           </td>
           <td>
-            {% if log.object_id %}
-            {% if log.event_type and 'snapshot' in log.event_type %}
-            <a href="/snapshots/{{ log.object_id }}"
+            {% if log.resource_id %}
+            {% if log.resource_type == 'snapshot' %}
+            <a href="/snapshots/{{ log.resource_id }}"
                class="text-xs" style="font-family:'Courier New',monospace">
-              {{ log.object_id[:12] }}…
+              {{ log.resource_id[:12] }}…
             </a>
             {% else %}
             <span class="text-xs text-muted"
                   style="font-family:'Courier New',monospace">
-              {{ log.object_id[:12] }}…
+              {{ log.resource_id[:12] }}…
             </span>
             {% endif %}
             {% else %}

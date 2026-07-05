@@ -2,10 +2,13 @@
 from __future__ import annotations
 import secrets
 from datetime import datetime, timezone
+from urllib.parse import urlencode
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 import httpx
 
+from provereno.audit import log_event
+from provereno.auth import get_session_login
 from provereno.config import settings
 from provereno.database import AsyncSessionLocal
 from provereno.models import User
@@ -20,17 +23,27 @@ GITHUB_API   = "https://api.github.com"
 
 @router.get("/login")
 async def login(request: Request, error: str = ""):
-    state = secrets.token_urlsafe(16)
-    _state_store[state] = True
-    params = (f"client_id={settings.github_client_id}"
-              f"&scope=read:org&state={state}")
     return request.app.state.templates.TemplateResponse(
         "login.html", {"request": request, "error": error or None}
     )
 
 
+@router.get("/github")
+async def github_redirect():
+    """Kick off the OAuth dance: redirect the browser to GitHub's authorize screen."""
+    state = secrets.token_urlsafe(16)
+    _state_store[state] = True
+    params = urlencode({
+        "client_id": settings.github_client_id,
+        "scope": "read:org read:user user:email",
+        "state": state,
+    })
+    return RedirectResponse(f"{GITHUB_AUTH}?{params}")
+
+
 @router.get("/callback")
-async def callback(code: str = "", state: str = ""):
+async def callback(request: Request, code: str = "", state: str = ""):
+    client_ip = request.client.host if request.client else None
     if state not in _state_store:
         return RedirectResponse("/auth/login?error=Доступ+запрещён.+Обратитесь+к+администратору.")
     _state_store.pop(state, None)
@@ -84,6 +97,7 @@ async def callback(code: str = "", state: str = ""):
             user = User(github_id=gh_id, github_login=gh_login, role="editor",
                         last_login_at=datetime.now(timezone.utc))
             session.add(user)
+        await log_event(session, "user.login", user_login=gh_login, ip=client_ip)
         await session.commit()
 
     from provereno.auth import create_session
@@ -94,7 +108,12 @@ async def callback(code: str = "", state: str = ""):
 
 
 @router.get("/logout")
-async def logout():
+async def logout(request: Request):
+    login = get_session_login(request)
+    if login:
+        async with AsyncSessionLocal() as session:
+            await log_event(session, "user.logout", user_login=login)
+            await session.commit()
     resp = RedirectResponse("/auth/login")
     resp.delete_cookie("session")
     return resp
